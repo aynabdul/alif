@@ -11,13 +11,23 @@
       "resizeMode": "contain",
       "backgroundColor": "#F5F5F5"
     },
-    "plugins": [],
+    "plugins": [
+      "expo-file-system",
+      "expo-image-picker",
+      "expo-dev-client",
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "DEFAULT"
+        }
+      ]
+    ],
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.alif.animalfarm",
+      "bundleIdentifier": "com.aynabdul.alifanimalfarm",
       "splash": {
         "image": "./assets/Logo.png",
         "resizeMode": "contain",
@@ -35,12 +45,11 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F5F5F5"
       },
-      "package": "com.alif.animalfarm",
+      "package": "com.aynabdul.alifanimalfarm",
       "splash": {
         "image": "./assets/Logo.png",
         "resizeMode": "contain",
         "backgroundColor": "#F5F5F5",
-        "mdpi": "./assets/splash-mdpi.png",
         "hdpi": "./assets/Logo.png",
         "xhdpi": "./assets/Logo.png",
         "xxhdpi": "./assets/Logo.png"

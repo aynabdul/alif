@@ -6,7 +6,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useTheme } from '../theme/ThemeContext';
 import { navigationRef } from './navigationUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// import * as SplashScreen from 'expo-splash-screen';
+import * as SplashScreen from 'expo-splash-screen';
 import { useSystemUI } from '../hooks/useSystemUI';
 
 // Navigators
