@@ -11,11 +11,12 @@ export type CartItem = {
   image: any; // We'll use any for image since it could be a require or uri
   categoryId?: string;
   currency?: string;
+  type?: 'product' | 'qurbani';
 };
 
 interface CartState {
   items: CartItem[];
-  country: string; // 'us' or 'pk'
+  country: string; // 'US' or 'PAK'
   addItem: (item: CartItem) => void;
   removeItem: (itemId: string | number) => void;
   updateQuantity: (itemId: string | number, quantity: number) => void;
@@ -29,7 +30,7 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
-      country: 'us', // Default to US
+      country: 'US', // Default to US
       
       addItem: (item) => set((state) => {
         // Ensure consistent id type by converting to string

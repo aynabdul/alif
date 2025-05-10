@@ -15,6 +15,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { useCartStore } from '../../stores/cartStore';
 import { IMAGE_PLACEHOLDERS } from '../../constants';
 import Card from './Card';
+import { API_BASE_URL } from '../../config/api';
 
 interface QurbaniCardProps {
   qurbani: Qurbani;
@@ -26,31 +27,57 @@ const cardWidth = width - 32; // Full width card with padding
 const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani }) => {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { theme } = useTheme();
-  const { country } = useCartStore();
+  const { addItem, country } = useCartStore();
   
-  // Get price based on country
-  const price = country === 'us' 
-    ? qurbani.qurbaniPriceUSA 
-    : qurbani.qurbaniPricePak;
+  // Get price based on country and support both naming conventions
+  const price = country === 'US' 
+    ? (qurbani.qurbaniPriceUSA || qurbani.priceforus || 0)
+    : (qurbani.qurbaniPricePak || qurbani.priceforpak || 0);
   
-  const currencySymbol = country === 'us' ? '$' : '₨';
+  const currencySymbol = country === 'US' ? '$' : '₨';
   
-  // Format date
-  const qurbaniDate = new Date(qurbani.qurbaniDate);
-  const formattedDate = qurbaniDate.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  // Get name and description
+  const name = qurbani.qurbaniName || qurbani.title || '';
+  const description = qurbani.qurbaniDescription || qurbani.description || '';
+  
+  // Format date if available, or use placeholder
+  const formattedDate = qurbani.qurbaniDate 
+    ? new Date(qurbani.qurbaniDate).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : 'Available for booking';
   
   // Get the first qurbani image or use placeholder
-  const imageUrl = qurbani.qurbaniImages && qurbani.qurbaniImages.length > 0
-    ? qurbani.qurbaniImages[0].imageUrl
-    : IMAGE_PLACEHOLDERS.PRODUCT;
+  let imageUrl = IMAGE_PLACEHOLDERS.PRODUCT;
+  
+  if (qurbani.qurbaniImages && qurbani.qurbaniImages.length > 0 && qurbani.qurbaniImages[0].imageUrl) {
+    imageUrl = qurbani.qurbaniImages[0].imageUrl;
+  } else if (qurbani.QurbaniImages && qurbani.QurbaniImages.length > 0 && qurbani.QurbaniImages[0].imageUrl) {
+    imageUrl = qurbani.QurbaniImages[0].imageUrl;
+  }
+  
+  // If the image URL is relative, prepend the API base URL
+  if (imageUrl && imageUrl.startsWith('/')) {
+    const baseUrlWithoutApi = API_BASE_URL.replace(/\/api$/, '');
+    imageUrl = `${baseUrlWithoutApi}${imageUrl}`;
+  }
   
   const handlePress = () => {
     navigation.navigate('QurbaniDetails', { 
-      packageId: qurbani.id.toString()
+      qurbaniId: qurbani.id
+    });
+  };
+
+  const handleAddToCart = () => {
+    addItem({
+      id: qurbani.id,
+      name: name,
+      price: price,
+      quantity: 1,
+      image: { uri: imageUrl },
+      type: 'qurbani'
     });
   };
   
@@ -78,14 +105,14 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani }) => {
             style={styles.title}
             numberOfLines={2}
           >
-            {qurbani.qurbaniName}
+            {name}
           </Text>
           
           <Text 
             style={styles.description}
             numberOfLines={3}
           >
-            {qurbani.qurbaniDescription}
+            {description}
           </Text>
           
           <View style={styles.footer}>
@@ -97,19 +124,32 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani }) => {
             
             <View style={styles.quantityContainer}>
               <Text style={styles.quantityLabel}>Available:</Text>
-              <Text style={[styles.quantity, { color: qurbani.qurbaniQuantity > 0 ? theme.colors.success : theme.colors.error }]}>
-                {qurbani.qurbaniQuantity} {qurbani.qurbaniQuantity === 1 ? 'animal' : 'animals'}
+              <Text style={[styles.quantity, { 
+                color: (qurbani.qurbaniQuantity || 10) > 0 
+                  ? theme.colors.success 
+                  : theme.colors.error 
+              }]}>
+                {qurbani.qurbaniQuantity || 10} {(qurbani.qurbaniQuantity || 10) === 1 ? 'animal' : 'animals'}
               </Text>
             </View>
           </View>
           
-          <TouchableOpacity 
-            style={[styles.detailsButton, { backgroundColor: theme.colors.primary }]}
-            onPress={handlePress}
-          >
-            <Text style={styles.detailsButtonText}>View Details</Text>
-            <Ionicons name="arrow-forward" size={16} color="white" />
-          </TouchableOpacity>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity 
+              style={[styles.detailsButton, { backgroundColor: theme.colors.primary }]}
+              onPress={handlePress}
+            >
+              <Text style={styles.detailsButtonText}>View Details</Text>
+              <Ionicons name="arrow-forward" size={16} color="white" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.cartButton, { backgroundColor: theme.colors.secondary }]}
+              onPress={handleAddToCart}
+            >
+              <Ionicons name="cart-outline" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Card>
@@ -185,6 +225,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   detailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -192,12 +236,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 4,
+    flex: 1,
+    marginRight: 8,
   },
   detailsButtonText: {
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
     marginRight: 4,
+  },
+  cartButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

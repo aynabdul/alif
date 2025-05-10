@@ -93,40 +93,82 @@ export interface ApiResponse<T> {
 
 // Qurbani related types
 export interface Qurbani {
-  id: number;
-  qurbaniName: string;
-  qurbaniDescription: string;
-  qurbaniPricePak: number;
-  qurbaniPriceUSA: number;
-  qurbaniDate: string;
-  qurbaniQuantity: number;
+  id: number | string;
+  title: string;
+  subtitle: string;
+  description: string;
+  showinwhichpage: string;
+  catagory: string;
+  priceforpak: number;
+  endpriceforpak: number;
+  priceforus: number;
+  endpriceforus: number;
+  skunopak: string;
+  skunous: string;
+  countrySelection: string;
   qurbaniImages?: QurbaniImage[];
+  // Keep backward compatibility with existing code
+  qurbaniName?: string;
+  qurbaniDescription?: string;
+  qurbaniPricePak?: number;
+  qurbaniPriceUSA?: number;
+  qurbaniDate?: string;
+  qurbaniQuantity?: number;
+  QurbaniImages?: QurbaniImage[]; // Backend returns Pascal case
 }
 
 export interface QurbaniImage {
-  id: number;
-  qurbaniId: number;
+  id: number | string;
+  qurbaniId: number | string;
   imageUrl: string;
 }
 
 // Order related types
 export interface Order {
-  id: number;
-  customerId: number;
-  orderDate: string;
+  id: number | string;
+  customerId: number | string;
+  orderDate?: string;
+  createdAt?: string; // Alternative for orderDate
   status: string;
-  totalAmount: number;
-  country: string;
+  totalAmount?: number; // Keeping for backward compatibility
+  totalPrice?: number | string; // Added to match API response
+  totalQuantity?: number;
+  country?: string;
+  // Payment fields
+  paymentStatus?: string;
+  paymentSessionId?: string | null;
+  transactionId?: string | null;
+  authcode?: string | null;
+  // Address fields
+  city?: string | null;
+  street?: string | null;
+  postcodeZip?: string | null;
+  // Timestamps
+  updatedAt?: string;
+  // Related items
   OrderItems?: OrderItem[];
 }
 
 export interface OrderItem {
-  id: number;
-  orderId: number;
-  productId: number;
+  id: number | string;
+  orderId: number | string;
+  productId: number | string | null;
   quantity: number;
-  price: number;
-  Product?: Product;
+  price: number | string;
+  // Qurbani related fields
+  qurbaniId?: string | null;
+  EidHour?: string | null;
+  Eidday?: string | null;
+  isQurbani?: boolean;
+  // Timestamps
+  createdAt?: string;
+  updatedAt?: string;
+  // Related entities
+  Product?: Product | null;
+  Qurbani?: {
+    id: string;
+    title: string;
+  } | null;
 }
 
 // Coupon related types

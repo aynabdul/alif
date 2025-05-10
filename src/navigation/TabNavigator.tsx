@@ -19,7 +19,7 @@ import { MainTabParamList } from '../types/navigation.types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-const TAB_BAR_HEIGHT = 60;
+const TAB_BAR_HEIGHT = 65; // Slightly reduced for tighter layout
 
 const TabNavigator = () => {
   const { theme } = useTheme();
@@ -39,8 +39,8 @@ const TabNavigator = () => {
             backgroundColor: theme.colors.background,
             borderTopColor: theme.colors.border,
             height: TAB_BAR_HEIGHT + (Platform.OS === 'ios' ? insets.bottom : 0),
-            paddingBottom: Platform.OS === 'ios' ? insets.bottom : 0,
-            paddingTop: 8,
+            paddingBottom: Platform.OS === 'ios' ? insets.bottom + 5 : 8, // Reduced padding for Android
+            paddingTop: 6, // Reduced padding for tighter spacing
             elevation: 8,
             shadowColor: theme.colors.text,
             shadowOffset: {
@@ -51,9 +51,18 @@ const TabNavigator = () => {
             shadowRadius: 3,
           },
           tabBarLabelStyle: {
-            fontSize: 12,
-            marginTop: -8,
-            marginBottom: 8,
+            fontSize: 11,
+            marginTop: 0, // Removed to reduce gap
+            marginBottom: 2, // Reduced to minimize space at bottom
+          },
+          tabBarIconStyle: {
+            marginBottom: 2, // Reduced to minimize space between icon and label
+          },
+          // Subtle iPhone-like feedback or no ripple on Android
+          tabBarActiveBackgroundColor: 'transparent', // Prevents default Android ripple
+          tabBarInactiveBackgroundColor: 'transparent', // Ensures consistency
+          tabBarItemStyle: {
+            paddingVertical: 4, // Adjust padding to control touch area
           },
           headerShown: false,
         }}
@@ -63,7 +72,7 @@ const TabNavigator = () => {
           component={HomeScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="home-outline" color={color} size={size} />
+              <Ionicons name="home-outline" color={color} size={24} />
             ),
           }}
         />
@@ -72,9 +81,17 @@ const TabNavigator = () => {
           component={WishlistScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="heart-outline" color={color} size={size} />
+              <Ionicons name="heart-outline" color={color} size={24} />
             ),
             tabBarBadge: wishlistItems.length > 0 ? wishlistItems.length : undefined,
+            tabBarBadgeStyle: {
+              backgroundColor: theme.colors.error,
+              color: 'white',
+              fontSize: 10,
+              minWidth: 18,
+              height: 18,
+              borderRadius: 9,
+            },
           }}
         />
         <Tab.Screen
@@ -82,9 +99,17 @@ const TabNavigator = () => {
           component={CartScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="cart-outline" color={color} size={size} />
+              <Ionicons name="cart-outline" color={color} size={24} />
             ),
             tabBarBadge: cartItems.length > 0 ? cartItems.length : undefined,
+            tabBarBadgeStyle: {
+              backgroundColor: theme.colors.error,
+              color: 'white',
+              fontSize: 10,
+              minWidth: 18,
+              height: 18,
+              borderRadius: 9,
+            },
           }}
         />
         <Tab.Screen
@@ -92,7 +117,7 @@ const TabNavigator = () => {
           component={ProfileScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="person-outline" color={color} size={size} />
+              <Ionicons name="person-outline" color={color} size={24} />
             ),
           }}
         />

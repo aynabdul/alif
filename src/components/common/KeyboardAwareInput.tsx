@@ -23,6 +23,7 @@ interface KeyboardAwareInputProps {
   countryCode?: string;
   onCountryCodePress?: () => void;
   leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
 }
 
 const KeyboardAwareInput: React.FC<KeyboardAwareInputProps> = ({
@@ -37,6 +38,7 @@ const KeyboardAwareInput: React.FC<KeyboardAwareInputProps> = ({
   countryCode = '+92',
   onCountryCodePress,
   leftIcon,
+  rightIcon,
 }) => {
   const { theme } = useTheme();
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
@@ -120,16 +122,22 @@ const KeyboardAwareInput: React.FC<KeyboardAwareInputProps> = ({
           onBlur={handleBlur}
         />
 
-        <TouchableOpacity
-          style={styles.keyboardIcon}
-          onPress={isKeyboardVisible ? handleBlur : handleFocus}
-        >
-          <Ionicons
-            name={isKeyboardVisible ? 'chevron-up' : 'chevron-down'}
-            size={24}
-            color={theme.colors.textSecondary}
-          />
-        </TouchableOpacity>
+        {rightIcon ? (
+          <View style={styles.rightIconContainer}>
+            {rightIcon}
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.keyboardIcon}
+            onPress={isKeyboardVisible ? handleBlur : handleFocus}
+          >
+            <Ionicons
+              name={isKeyboardVisible ? 'chevron-up' : 'chevron-down'}
+              size={24}
+              color={theme.colors.textSecondary}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {error && (
@@ -189,6 +197,12 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   leftIconContainer: {
+    paddingHorizontal: 12,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rightIconContainer: {
     paddingHorizontal: 12,
     height: '100%',
     justifyContent: 'center',

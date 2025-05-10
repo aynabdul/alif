@@ -99,26 +99,22 @@ const ProfileScreen = () => {
               Access your orders and account settings
             </Text>
             <View style={styles.authButtonsContainer}>
-              <TouchableOpacity 
-                style={[styles.authButton, { backgroundColor: theme.colors.brand, width: '100%' }]}
-                onPress={() => {
-                  navigation.navigate('Auth', {
-                    screen: 'Login'
-                  });
-                }}
-              >
-                <Text style={styles.authButtonText}>Sign In</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.authButton, { backgroundColor: theme.colors.primary, marginTop: 10, width: '100%' }]}
-                onPress={() => {
-                  navigation.navigate('Auth', {
-                    screen: 'Register'
-                  });
-                }}
-              >
-                <Text style={styles.authButtonText}>Sign Up</Text>
-              </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.authButton, { backgroundColor: theme.colors.brand, width: '100%' }]}
+              onPress={() => {
+                navigation.navigate('Auth', { screen: 'Login' });
+              }}
+            >
+              <Text style={styles.authButtonText}>Sign In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.authButton, { backgroundColor: theme.colors.primary, marginTop: 10, width: '100%' }]}
+              onPress={() => {
+                navigation.navigate('Auth', { screen: 'Register' });
+              }}
+            >
+              <Text style={styles.authButtonText}>Sign Up</Text>
+            </TouchableOpacity>
             </View>
           </View>
         )}

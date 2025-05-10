@@ -14,6 +14,7 @@ import { qurbaniService } from '../services/api.service';
 import { Qurbani } from '../types/api.types';
 import QurbaniCard from '../components/common/QurbaniCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import GuideCard from '../components/Qurbani/GuideCard';
 
 const QurbaniScreen = () => {
   const { theme } = useTheme();
@@ -32,16 +33,34 @@ const QurbaniScreen = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching all qurbanis for main screen...');
       const response = await qurbaniService.getQurbanis();
+      console.log('Qurbani main screen response:', response);
+      
       if (response.success && response.data) {
-        setQurbanis(response.data);
+        console.log('Mapping qurbanis for UI:', response.data.length, 'items');
+        // Map backend fields to frontend expected fields for backward compatibility
+        const mappedQurbanis = response.data.map(qurbani => ({
+          ...qurbani,
+          qurbaniName: qurbani.title || qurbani.qurbaniName,
+          qurbaniDescription: qurbani.description || qurbani.qurbaniDescription,
+          qurbaniPricePak: qurbani.priceforpak || qurbani.qurbaniPricePak,
+          qurbaniPriceUSA: qurbani.priceforus || qurbani.qurbaniPriceUSA,
+          qurbaniQuantity: 10, // Default quantity if not provided
+          qurbaniImages: qurbani.QurbaniImages || qurbani.qurbaniImages || []
+        }));
+        
+        console.log('Processed qurbanis:', mappedQurbanis.length);
+        setQurbanis(mappedQurbanis);
       } else {
-        setError('Failed to fetch Qurbani options');
+        console.error('API returned success=false or no data:', response);
+        setError(`Failed to fetch Qurbani options: ${response.message || 'Unknown error'}`);
       }
       setLoading(false);
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error('Error fetching Qurbanis:', err);
-      setError('Failed to load Qurbani options. Please try again.');
+      setError(`Failed to load Qurbani options: ${errorMessage}`);
       setLoading(false);
     }
   };
@@ -65,6 +84,7 @@ const QurbaniScreen = () => {
       
       <FlatList
         data={qurbanis}
+        ListHeaderComponent={<GuideCard />}
         renderItem={({ item }) => (
           <QurbaniCard qurbani={item} />
         )}

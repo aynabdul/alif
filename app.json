@@ -4,7 +4,7 @@
     "slug": "alif-animal-farm",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/Logo.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/Logo.png",
@@ -87,6 +87,12 @@
         "enableExperimentalGhostLinesPrevention": true,
         "defaultProps": false
       }
-    }
+    },
+    "developer": {
+      "tool": "expo-cli",
+      "urlType": "lan"
+    },
+    "scheme": "alif-animal-farm",
+    "owner": "alif-animal-farm"
   }
 }

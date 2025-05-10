@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,34 +13,36 @@ import {
   Keyboard,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { AuthScreenNavigationProp } from '../types/navigation.types';
+import { AuthStackNavigationProp } from '../types/navigation.types';
 import { useTheme } from '../theme/ThemeContext';
 import KeyboardAwareInput from '../components/common/KeyboardAwareInput';
 import Button from '../components/common/Button';
 import { authService } from '../services/api.service';
 import { useAuthStore } from '../stores/authStore';
 import { resetRoot } from '../navigation/navigationUtils';
+import { Ionicons } from '@expo/vector-icons';
 
 const RegisterScreen = () => {
-  const navigation = useNavigation<AuthScreenNavigationProp<'Register'>>();
+  const navigation = useNavigation<AuthStackNavigationProp>();
   const { theme } = useTheme();
   const { signIn, isLoading, error, clearError } = useAuthStore();
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [countryCode, setCountryCode] = useState('+92');
+  const [confirmPassword, setConfirmPassword] = useState('');
   
   const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   
   const [registering, setRegistering] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       'keyboardDidShow',
       () => {
@@ -87,20 +89,6 @@ const RegisterScreen = () => {
     return true;
   };
 
-  const validatePhone = (value: string): boolean => {
-    if (!value.trim()) {
-      setPhoneError('Phone number is required');
-      return false;
-    }
-    // Basic validation for phone number
-    if (!/^\d{10,11}$/.test(value.trim())) {
-      setPhoneError('Please enter a valid phone number');
-      return false;
-    }
-    setPhoneError('');
-    return true;
-  };
-
   const validatePassword = (value: string): boolean => {
     if (!value) {
       setPasswordError('Password is required');
@@ -114,19 +102,31 @@ const RegisterScreen = () => {
     return true;
   };
 
+  const validateConfirmPassword = (value: string): boolean => {
+    if (!value) {
+      setConfirmPasswordError('Please confirm your password');
+      return false;
+    }
+    if (value !== password) {
+      setConfirmPasswordError('Passwords do not match');
+      return false;
+    }
+    setConfirmPasswordError('');
+    return true;
+  };
+
   const handleRegister = async () => {
     clearError();
     
     const isNameValid = validateName(name);
     const isEmailValid = validateEmail(email);
-    const isPhoneValid = validatePhone(phone);
     const isPasswordValid = validatePassword(password);
+    const isConfirmPasswordValid = validateConfirmPassword(confirmPassword);
     
-    if (isNameValid && isEmailValid && isPhoneValid && isPasswordValid) {
+    if (isNameValid && isEmailValid && isPasswordValid && isConfirmPasswordValid) {
       setRegistering(true);
       try {
-        // Call the signup API directly with phone number
-        const response = await authService.signUp(name, email, password, `${countryCode}${phone}`);
+        const response = await authService.signUp(name, email, password);
         
         if (response.status === 201) {
           Alert.alert(
@@ -142,9 +142,8 @@ const RegisterScreen = () => {
                 text: "Sign In",
                 onPress: async () => {
                   try {
-                    // Auto sign in the user
                     await signIn(email, password);
-                    // Navigate to the Home screen
+                    console.log('Signed in successfully');
                     resetRoot('Main');
                   } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : "Sign in failed";
@@ -156,23 +155,38 @@ const RegisterScreen = () => {
             ]
           );
         } else {
-          Alert.alert("Registration Failed", response.message || "An error occurred during registration");
+          throw new Error(response.message || "Registration failed");
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Registration failed";
+        console.error('Registration error:', error);
+        let errorMessage = "Registration failed";
+        
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'object' && error !== null) {
+          const errorObj = error as any;
+          if (errorObj.message) {
+            errorMessage = errorObj.message;
+          } else if (errorObj.error) {
+            errorMessage = typeof errorObj.error === 'string' 
+              ? errorObj.error 
+              : JSON.stringify(errorObj.error);
+          }
+        }
+        
         Alert.alert("Registration Error", errorMessage);
       } finally {
         setRegistering(false);
       }
     }
   };
-  
-  const handleCountryCodePress = () => {
-    navigation.navigate('CountrySelect', {
-      onSelect: (countryCode: string) => {
-        setCountryCode(countryCode);
-      }
-    });
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
   };
 
   return (
@@ -234,31 +248,50 @@ const RegisterScreen = () => {
           />
 
           <KeyboardAwareInput
-            label="Phone Number"
-            value={phone}
-            onChangeText={(text) => {
-              setPhone(text);
-              validatePhone(text);
-            }}
-            placeholder="Enter your phone number"
-            keyboardType="phone-pad"
-            countryCode={countryCode}
-            onCountryCodePress={handleCountryCodePress}
-            error={phoneError}
-            required
-          />
-
-          <KeyboardAwareInput
             label="Password"
             value={password}
             onChangeText={(text) => {
               setPassword(text);
               validatePassword(text);
+              if (confirmPassword) {
+                validateConfirmPassword(confirmPassword);
+              }
             }}
             placeholder="Enter your password"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             error={passwordError}
             required
+            rightIcon={
+              <TouchableOpacity onPress={togglePasswordVisibility}>
+                <Ionicons 
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                  size={22} 
+                  color={theme.colors.textSecondary} 
+                />
+              </TouchableOpacity>
+            }
+          />
+
+          <KeyboardAwareInput
+            label="Confirm Password"
+            value={confirmPassword}
+            onChangeText={(text) => {
+              setConfirmPassword(text);
+              validateConfirmPassword(text);
+            }}
+            placeholder="Confirm your password"
+            secureTextEntry={!showConfirmPassword}
+            error={confirmPasswordError}
+            required
+            rightIcon={
+              <TouchableOpacity onPress={toggleConfirmPasswordVisibility}>
+                <Ionicons 
+                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} 
+                  size={22} 
+                  color={theme.colors.textSecondary} 
+                />
+              </TouchableOpacity>
+            }
           />
 
           {error && (

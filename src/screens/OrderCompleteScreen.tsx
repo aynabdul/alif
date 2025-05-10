@@ -12,6 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '../components/common/Button';
+import { RootStackNavigationProp, RootStackParamList } from '../types/navigation.types';
 
 type OrderCompleteParams = {
   orderId: string;
@@ -19,12 +20,12 @@ type OrderCompleteParams = {
 
 const OrderCompleteScreen = () => {
   const { theme } = useTheme();
-  const navigation = useNavigation();
-  const route = useRoute<RouteProp<Record<string, OrderCompleteParams>, string>>();
+  const navigation = useNavigation<RootStackNavigationProp>();
+  const route = useRoute<RouteProp<RootStackParamList, 'OrderComplete'>>();
   const { orderId } = route.params || { orderId: 'ORD-123456' };
   
   const handleContinueShopping = () => {
-    navigation.navigate('Home');
+    navigation.navigate('Main');
   };
   
   const handleViewOrder = () => {
@@ -38,7 +39,7 @@ const OrderCompleteScreen = () => {
       <View style={styles.header}>
         <TouchableOpacity 
           style={[styles.closeButton, { backgroundColor: theme.colors.card }]}
-          onPress={() => navigation.navigate('Home')}
+          onPress={() => navigation.navigate('Main')}
         >
           <Ionicons name="close" size={24} color={theme.colors.text} />
         </TouchableOpacity>
@@ -107,13 +108,14 @@ const OrderCompleteScreen = () => {
         <Button
           title="View Order Details"
           onPress={handleViewOrder}
-          containerStyle={[styles.viewOrderButton, { backgroundColor: theme.colors.card }]}
+          variant="outline"
+          style={styles.viewOrderButton}
           textStyle={{ color: theme.colors.primary }}
         />
         <Button
           title="Continue Shopping"
           onPress={handleContinueShopping}
-          containerStyle={styles.continueButton}
+          style={styles.continueButton}
         />
       </View>
     </SafeAreaView>

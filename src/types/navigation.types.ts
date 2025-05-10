@@ -1,4 +1,3 @@
-import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp, CompositeNavigationProp } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { Product, Category, Qurbani } from './api.types';
@@ -17,7 +16,7 @@ export type AppStackParamList = {
   Main: undefined;
   ProductDetails: { productId: string; product?: Product };
   CategoryProducts: { categoryId: string; categoryName: string };
-  QurbaniDetails: { qurbaniId: string; qurbani?: Qurbani };
+  QurbaniDetails: { qurbaniId: string | number; qurbani?: Qurbani };
   Cart: undefined;
   Checkout: undefined;
   OrderComplete: { orderId: string };
@@ -29,6 +28,7 @@ export type AppStackParamList = {
   QurbaniBooking: undefined;
   QurbaniDonate: undefined;
   OrderDetails: { orderId: string };
+  OrderHistory: undefined;
   FAQs: undefined;
   PrivacyPolicy: undefined;
   Terms: undefined;
@@ -51,7 +51,7 @@ export type RootStackParamList = {
   CountrySelect: { onSelect?: (countryCode: string) => void } | undefined;
   ProductDetails: { productId: string; product?: Product };
   CategoryProducts: { categoryId: string; categoryName: string };
-  QurbaniDetails: { qurbaniId: string; qurbani?: Qurbani };
+  QurbaniDetails: { qurbaniId: string | number; qurbani?: Qurbani };
   Cart: undefined;
   Checkout: undefined;
   OrderComplete: { orderId: string };
@@ -63,6 +63,7 @@ export type RootStackParamList = {
   QurbaniBooking: undefined;
   QurbaniDonate: undefined;
   OrderDetails: { orderId: string };
+  OrderHistory: undefined;
   FAQs: undefined;
   PrivacyPolicy: undefined;
   Terms: undefined;
@@ -78,6 +79,7 @@ export type RootStackNavigationProp = NativeStackNavigationProp<RootStackParamLi
 export type AuthScreenRouteProp<T extends keyof AuthStackParamList> = RouteProp<AuthStackParamList, T>;
 export type AppScreenRouteProp<T extends keyof AppStackParamList> = RouteProp<AppStackParamList, T>;
 export type TabScreenRouteProp<T extends keyof MainTabParamList> = RouteProp<MainTabParamList, T>;
+export type QurbaniDetailsRouteProp = RouteProp<RootStackParamList, 'QurbaniDetails'>;
 
 // Combined Navigation Prop
 export type AppNavigationProp = CompositeNavigationProp<

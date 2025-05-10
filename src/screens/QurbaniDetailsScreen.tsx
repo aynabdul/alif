@@ -5,17 +5,24 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Image,
+  TouchableOpacity,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { QurbaniDetailsRouteProp } from '../types/navigation.types';
 import { qurbaniService } from '../services/api.service';
-import { Qurbani } from '../types/api.types';
+import { Qurbani, QurbaniImage } from '../types/api.types';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { useCartStore } from '../stores/cartStore';
+import { IMAGE_PLACEHOLDERS } from '../constants';
+import { API_BASE_URL } from '../config/api';
 
 const QurbaniDetailsScreen = () => {
   const route = useRoute<QurbaniDetailsRouteProp>();
   const { theme } = useTheme();
+  const { addItem, country: storeCountry } = useCartStore();
   const { qurbaniId } = route.params;
 
   const [qurbani, setQurbani] = useState<Qurbani | null>(null);
@@ -30,18 +37,81 @@ const QurbaniDetailsScreen = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching qurbani details for ID:', qurbaniId, 'Type:', typeof qurbaniId);
       const response = await qurbaniService.getQurbaniById(qurbaniId);
+      console.log('Qurbani details response:', JSON.stringify(response, null, 2));
+      
       if (response.success && response.data) {
+        console.log('Setting qurbani data:', JSON.stringify(response.data, null, 2));
         setQurbani(response.data);
       } else {
-        setError('Failed to fetch Qurbani details');
+        console.error('API returned success=false or no data:', JSON.stringify(response, null, 2));
+        setError(`Failed to fetch Qurbani details: ${response.message || 'Unknown error'}`);
       }
       setLoading(false);
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error('Error fetching Qurbani details:', err);
-      setError('Failed to load Qurbani details. Please try again.');
+      setError(`Failed to load Qurbani details: ${errorMessage}`);
       setLoading(false);
     }
+  };
+
+  // Helper function to process image URLs
+  const getProcessedImageUrl = (imageUrl: string) => {
+    if (imageUrl && imageUrl.startsWith('/')) {
+      const baseUrlWithoutApi = API_BASE_URL.replace(/\/api$/, '');
+      return `${baseUrlWithoutApi}${imageUrl}`;
+    }
+    return imageUrl;
+  };
+
+  const handleAddToCart = () => {
+    if (qurbani) {
+      const name = qurbani.title || qurbani.qurbaniName || '';
+      const price = storeCountry === 'US' 
+        ? (qurbani.priceforus || qurbani.qurbaniPriceUSA || 0) 
+        : (qurbani.priceforpak || qurbani.qurbaniPricePak || 0);
+      
+      const imageUrl = getFirstImageUrl();
+      
+      addItem({
+        id: qurbani.id,
+        name: name,
+        price: price,
+        quantity: 1,
+        image: { uri: imageUrl },
+        type: 'qurbani',
+      });
+    }
+  };
+
+  const getFirstImageUrl = () => {
+    if (!qurbani) return IMAGE_PLACEHOLDERS.PRODUCT;
+    
+    let imageUrl = IMAGE_PLACEHOLDERS.PRODUCT;
+    
+    if (qurbani.qurbaniImages && qurbani.qurbaniImages.length > 0) {
+      imageUrl = qurbani.qurbaniImages[0].imageUrl;
+    } else if (qurbani.QurbaniImages && qurbani.QurbaniImages.length > 0) {
+      imageUrl = qurbani.QurbaniImages[0].imageUrl;
+    }
+    
+    return getProcessedImageUrl(imageUrl);
+  };
+
+  const getDisplayPrice = () => {
+    if (!qurbani) return { price: 0, discountedPrice: 0, currency: '', hasDiscount: false };
+    
+    const price = storeCountry === 'US' 
+      ? (qurbani.priceforus || qurbani.qurbaniPriceUSA || 0)
+      : (qurbani.priceforpak || qurbani.qurbaniPricePak || 0);
+      
+    const currency = storeCountry === 'US' ? 'USD' : 'PKR';
+    const discount = price * 0.1; // Example: 10% discount
+    const discountedPrice = price - discount;
+
+    return { price, discountedPrice, currency, hasDiscount: true };
   };
 
   if (loading) {
@@ -69,6 +139,12 @@ const QurbaniDetailsScreen = () => {
     );
   }
 
+  const { price, discountedPrice, currency, hasDiscount } = getDisplayPrice();
+  const name = qurbani.title || qurbani.qurbaniName || '';
+  const subtitle = qurbani.subtitle || '';
+  const description = qurbani.description || qurbani.qurbaniDescription || '';
+  const images = qurbani.QurbaniImages || qurbani.qurbaniImages || [];
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar style={theme.statusBarStyle} backgroundColor="transparent" translucent />
@@ -77,39 +153,92 @@ const QurbaniDetailsScreen = () => {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { color: theme.colors.text }]}>{qurbani.title}</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          {qurbani.subtitle}
-        </Text>
+        <Text style={[styles.title, { color: theme.colors.text }]}>{name}</Text>
+        {subtitle && (
+          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+            {subtitle}
+          </Text>
+        )}
+
+        {/* Display all images */}
+        {images && images.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageGallery}>
+            {images.map((image, index) => (
+              <Image
+                key={index}
+                source={{ uri: getProcessedImageUrl(image.imageUrl) }}
+                style={styles.qurbaniImage}
+                defaultSource={require('../../assets/default-product.png')}
+              />
+            ))}
+          </ScrollView>
+        ) : (
+          <Image
+            source={require('../../assets/default-product.png')}
+            style={styles.qurbaniImage}
+          />
+        )}
+
         <Text style={[styles.description, { color: theme.colors.text }]}>
-          {qurbani.description}
+          {description}
         </Text>
-        
+
         <View style={styles.priceSection}>
           <View style={styles.priceBlock}>
             <Text style={[styles.priceLabel, { color: theme.colors.textSecondary }]}>
               Price (Pakistan)
             </Text>
             <Text style={[styles.price, { color: theme.colors.text }]}>
-              PKR {qurbani.priceforpak?.toFixed(2)}
+              PKR {qurbani.priceforpak || qurbani.qurbaniPricePak || 0}
             </Text>
-            <Text style={[styles.sku, { color: theme.colors.textSecondary }]}>
-              SKU: {qurbani.skunopak}
-            </Text>
+            {qurbani.skunopak && (
+              <Text style={[styles.sku, { color: theme.colors.textSecondary }]}>
+                SKU: {qurbani.skunopak}
+              </Text>
+            )}
           </View>
-          
           <View style={styles.priceBlock}>
             <Text style={[styles.priceLabel, { color: theme.colors.textSecondary }]}>
               Price (USA)
             </Text>
             <Text style={[styles.price, { color: theme.colors.text }]}>
-              USD {qurbani.priceforus?.toFixed(2)}
+              USD {qurbani.priceforus || qurbani.qurbaniPriceUSA || 0}
             </Text>
-            <Text style={[styles.sku, { color: theme.colors.textSecondary }]}>
-              SKU: {qurbani.skunous}
-            </Text>
+            {qurbani.skunous && (
+              <Text style={[styles.sku, { color: theme.colors.textSecondary }]}>
+                SKU: {qurbani.skunous}
+              </Text>
+            )}
           </View>
         </View>
+
+        <View style={styles.displayPriceSection}>
+          <Text style={[styles.displayPriceLabel, { color: theme.colors.textSecondary }]}>
+            Your Price ({storeCountry.toUpperCase()})
+          </Text>
+          {hasDiscount ? (
+            <View style={styles.priceRow}>
+              <Text style={[styles.price, { color: theme.colors.text, textDecorationLine: 'line-through' }]}>
+                {`${currency} ${price}`}
+              </Text>
+              <Text style={[styles.discountedPrice, { color: theme.colors.primary }]}>
+                {`${currency} ${discountedPrice}`}
+              </Text>
+            </View>
+          ) : (
+            <Text style={[styles.price, { color: theme.colors.text }]}>
+              {`${currency} ${price}`}
+            </Text>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={[styles.addToCartButton, { backgroundColor: theme.colors.primary }]}
+          onPress={handleAddToCart}
+        >
+          <Ionicons name="cart-outline" size={20} color="white" />
+          <Text style={styles.addToCartText}>Add to Cart</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -153,6 +282,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 16,
   },
+  imageGallery: {
+    marginBottom: 16,
+  },
+  qurbaniImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    marginRight: 10,
+  },
   description: {
     fontSize: 16,
     lineHeight: 24,
@@ -161,7 +299,7 @@ const styles = StyleSheet.create({
   priceSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 16,
+    marginBottom: 16,
   },
   priceBlock: {
     flex: 1,
@@ -174,13 +312,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 4,
   },
+  displayPriceSection: {
+    marginBottom: 16,
+  },
+  displayPriceLabel: {
+    fontSize: 16,
+    marginBottom: 8,
+  },
   price: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 4,
   },
+  discountedPrice: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   sku: {
     fontSize: 12,
+  },
+  addToCartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  addToCartText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

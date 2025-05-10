@@ -19,12 +19,16 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   userCountry: string | null;
+  resetPasswordEmail: string | null;
+  resetCodeVerified: boolean;
   
   // Auth actions
   register: (name: string, email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  verifyResetCode: (email: string, code: string) => Promise<void>;
+  setNewPassword: (email: string, newPassword: string) => Promise<void>;
   clearError: () => void;
   setUserCountry: (country: string) => void;
 }
@@ -38,28 +42,29 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       userCountry: null,
+      resetPasswordEmail: null,
+      resetCodeVerified: false,
       
-      // Customer registration
       register: async (name, email, password) => {
         set({ isLoading: true, error: null });
         try {
           const response = await authService.signUp(name, email, password);
           
           if (response.status === 201) {
-            // Registration successful, but user needs to sign in
             set({ isLoading: false });
           } else {
             throw new Error(response.message || 'Registration failed');
           }
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Registration failed';
           set({ 
-            error: error instanceof Error ? error.message : 'Registration failed',
+            error: errorMessage,
             isLoading: false
           });
+          throw new Error(errorMessage); 
         }
       },
       
-      // Customer login
       signIn: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
@@ -83,13 +88,15 @@ export const useAuthStore = create<AuthState>()(
             throw new Error(response.message || 'Login failed');
           }
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Login failed';
           set({ 
-            error: error instanceof Error ? error.message : 'Login failed',
+            error: errorMessage,
             isLoading: false
           });
+          throw new Error(errorMessage); 
         }
       },
-      
+
       // Sign out
       signOut: async () => {
         set({ isLoading: true });
@@ -114,17 +121,63 @@ export const useAuthStore = create<AuthState>()(
       resetPassword: async (email) => {
         set({ isLoading: true, error: null });
         try {
-          // In a real app, this would be an API call
-          // await api.auth.resetPassword({ email });
+          const response = await authService.resetPassword(email);
           
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // For demo purposes, we'll simulate a successful password reset
-          set({ isLoading: false });
+          if (response.status === 200) {
+            set({ 
+              isLoading: false,
+              resetPasswordEmail: email,
+              resetCodeVerified: false
+            });
+          } else {
+            throw new Error(response.message || 'Password reset failed');
+          }
         } catch (error) {
           set({ 
             error: error instanceof Error ? error.message : 'Password reset failed',
+            isLoading: false
+          });
+          throw error;
+        }
+      },
+      
+      // Verify reset code
+      verifyResetCode: async (email, code) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await authService.verifyResetCode(email, code);
+          
+          if (response.status === 200) {
+            set({ 
+              isLoading: false,
+              resetCodeVerified: true
+            });
+          } else {
+            throw new Error(response.message || 'Reset code verification failed');
+          }
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Reset code verification failed',
+            isLoading: false
+          });
+          throw error;
+        }
+      },
+      
+      // Set new password
+      setNewPassword: async (email, newPassword) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await authService.setNewPassword(email, newPassword);
+          
+          if (response.status === 200) {
+            set({ isLoading: false });
+          } else {
+            throw new Error(response.message || 'Password set failed');
+          }
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Password set failed',
             isLoading: false
           });
         }

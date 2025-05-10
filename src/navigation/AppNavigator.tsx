@@ -1,10 +1,9 @@
 import React from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppStackParamList } from '../types/navigation.types';
 import MainLayout from '../components/common/MainLayout';
 import TabNavigator from './TabNavigator';
 
-// Screens
 import ProductDetailsScreen from '../screens/ProductDetailsScreen';
 import CategoryProductsScreen from '../screens/CategoryProductsScreen';
 import QurbaniDetailsScreen from '../screens/QurbaniDetailsScreen';
@@ -20,11 +19,12 @@ import AboutScreen from '../screens/AboutScreen';
 import QurbaniBookingScreen from '../screens/QurbaniBookingScreen';
 import QurbaniDonateScreen from '../screens/QurbaniDonateScreen';
 import OrderDetailsScreen from '../screens/OrderDetailsScreen';
+import OrdersScreen from '../screens/OrdersScreen';
 import FAQsScreen from '../screens/FAQsScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsScreen from '../screens/TermsScreen';
 
-const Stack = createStackNavigator<AppStackParamList>();
+const Stack = createNativeStackNavigator<AppStackParamList>();
 
 const AppNavigator = () => {
   return (
@@ -32,14 +32,13 @@ const AppNavigator = () => {
       initialRouteName="Main"
       screenOptions={{
         headerShown: false,
-        cardStyle: { backgroundColor: '#fff' },
       }}
     >
       <Stack.Screen
         name="Main"
         component={TabNavigator}
         options={{
-          presentation: 'transparentModal', // Prevents stack replacement
+          presentation: 'transparentModal', 
         }}
       />
       <Stack.Screen name="ProductDetails">
@@ -137,6 +136,13 @@ const AppNavigator = () => {
         {() => (
           <MainLayout>
             <OrderDetailsScreen />
+          </MainLayout>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="OrderHistory">
+        {() => (
+          <MainLayout>
+            <OrdersScreen />
           </MainLayout>
         )}
       </Stack.Screen>

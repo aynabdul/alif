@@ -12,24 +12,25 @@ import {
   StatusBar
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { AuthScreenNavigationProp } from '../types/navigation.types';
+import { AuthStackNavigationProp } from '../types/navigation.types';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuthStore } from '../stores/authStore';
 import KeyboardAwareInput from '../components/common/KeyboardAwareInput';
 import Button from '../components/common/Button';
 import { resetRoot } from '../navigation/navigationUtils';
+import { Ionicons } from '@expo/vector-icons';
 
 const LoginScreen = () => {
   const { theme } = useTheme();
-  const navigation = useNavigation<AuthScreenNavigationProp<'Login'>>();
+  const navigation = useNavigation<AuthStackNavigationProp>();
   const { signIn, isLoading, error, clearError } = useAuthStore();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [userType, setUserType] = useState<'customer' | 'admin'>('customer');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -87,11 +88,30 @@ const LoginScreen = () => {
     if (isEmailValid && isPasswordValid) {
       try {
         await signIn(email, password);
+        console.log('Signed in successfully');
         resetRoot('Main');
       } catch (error) {
         console.error('Login error:', error);
+        
+        let errorMessage = "Failed to sign in";
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'object' && error !== null) {
+          const errorObj = error as any;
+          if (errorObj.message) {
+            errorMessage = errorObj.message;
+          } else if (errorObj.error) {
+            errorMessage = typeof errorObj.error === 'string' 
+              ? errorObj.error 
+              : JSON.stringify(errorObj.error);
+          }
+        }
       }
     }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -126,48 +146,6 @@ const LoginScreen = () => {
           </Text>
         </View>
 
-        <View style={styles.userTypeContainer}>
-          <TouchableOpacity 
-            style={[
-              styles.userTypeButton, 
-              userType === 'customer' ? { 
-                backgroundColor: theme.colors.brand,
-                borderColor: theme.colors.brand 
-              } : null
-            ]}
-            onPress={() => setUserType('customer')}
-          >
-            <Text 
-              style={[
-                styles.userTypeText, 
-                userType === 'customer' ? { color: '#FFFFFF' } : null
-              ]}
-            >
-              Customer
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[
-              styles.userTypeButton, 
-              userType === 'admin' ? { 
-                backgroundColor: theme.colors.brand,
-                borderColor: theme.colors.brand 
-              } : null
-            ]}
-            onPress={() => setUserType('admin')}
-          >
-            <Text 
-              style={[
-                styles.userTypeText, 
-                userType === 'admin' ? { color: '#FFFFFF' } : null
-              ]}
-            >
-              Admin
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.formContainer}>
           <KeyboardAwareInput
             label="Email Address"
@@ -190,9 +168,18 @@ const LoginScreen = () => {
               validatePassword(text);
             }}
             placeholder="Enter your password"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             error={passwordError}
             required
+            rightIcon={
+              <TouchableOpacity onPress={togglePasswordVisibility}>
+                <Ionicons 
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                  size={22} 
+                  color={theme.colors.textSecondary} 
+                />
+              </TouchableOpacity>
+            }
           />
           
           <TouchableOpacity 
@@ -281,25 +268,6 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 16,
-  },
-  userTypeContainer: {
-    flexDirection: 'row',
-    marginBottom: 24,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  userTypeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  userTypeText: {
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#666',
   },
   formContainer: {
     width: '100%',

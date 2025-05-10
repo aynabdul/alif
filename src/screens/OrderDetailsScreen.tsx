@@ -14,7 +14,7 @@ import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { RootStackParamList } from '../types/navigation.types';
+import { RootStackParamList, RootStackNavigationProp } from '../types/navigation.types';
 import { Order, OrderItem } from '../types/api.types';
 import { API_BASE_URL } from '../config/api';
 
@@ -22,7 +22,7 @@ type OrderDetailsRouteProp = RouteProp<RootStackParamList, 'OrderDetails'>;
 
 const OrderDetailsScreen = () => {
   const { theme } = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<RootStackNavigationProp>();
   const route = useRoute<OrderDetailsRouteProp>();
   const { orderId } = route.params;
   
@@ -53,6 +53,12 @@ const OrderDetailsScreen = () => {
         status: 'Processing',
         totalAmount: 245.99,
         country: 'USA',
+        paymentStatus: 'paid',
+        paymentSessionId: 'sess_12345',
+        transactionId: 'txn_67890abcdef',
+        city: 'New York',
+        street: '123 Main St',
+        postcodeZip: '10001',
         OrderItems: [
           {
             id: 1,
@@ -61,7 +67,7 @@ const OrderDetailsScreen = () => {
             quantity: 2,
             price: 120.99,
             Product: {
-              id: 1,
+              id: '1',
               productName: 'Premium Goat Meat',
               productDescription: 'Fresh goat meat',
               OriginalPricePak: 2000,
@@ -83,11 +89,12 @@ const OrderDetailsScreen = () => {
               productTags: 'goat, meat, fresh',
               showOnHomeScreen: true,
               whereToShow: 'home',
-              categoryId: 1,
+              categoryId: '1',
+              discountAtOnce: 0,
               ProductImages: [
                 {
-                  id: 1,
-                  productId: 1,
+                  id: '1',
+                  productId: '1',
                   imageUrl: '/uploads/products/goat.jpg'
                 }
               ]
@@ -99,8 +106,9 @@ const OrderDetailsScreen = () => {
             productId: 2,
             quantity: 1,
             price: 25.00,
+            isQurbani: false,
             Product: {
-              id: 2,
+              id: '2',
               productName: 'Organic Egg Pack',
               productDescription: 'Farm fresh eggs, pack of 12',
               OriginalPricePak: 500,
@@ -122,12 +130,56 @@ const OrderDetailsScreen = () => {
               productTags: 'eggs, organic, fresh',
               showOnHomeScreen: true,
               whereToShow: 'home',
-              categoryId: 3,
+              categoryId: '3',
+              discountAtOnce: 0,
               ProductImages: [
                 {
-                  id: 3,
-                  productId: 2,
+                  id: '3',
+                  productId: '2',
                   imageUrl: '/uploads/products/eggs.jpg'
+                }
+              ]
+            }
+          },
+          {
+            id: 3,
+            orderId: Number(orderId),
+            productId: 3,
+            quantity: 1,
+            price: 100.00,
+            isQurbani: true,
+            qurbaniId: '5678',
+            EidHour: '10:00 AM - 12:00 PM',
+            Product: {
+              id: '3',
+              productName: 'Goat Qurbani',
+              productDescription: 'Eid al-Adha Goat Sacrifice',
+              OriginalPricePak: 1000,
+              discountOfferinPak: 0,
+              PriceAfterDiscountPak: 1000,
+              IsDiscountedProductInPak: false,
+              OriginalPriceUSA: 100.00,
+              discountOfferinUSA: 0,
+              PriceAfterDiscountUSA: 100.00,
+              IsDiscountedProductInUSA: false,
+              quantityForUSA: 10,
+              quantityForPak: 10,
+              SKUPak: 'QRB-PK-001',
+              SKUUSA: 'QRB-US-001',
+              productheight: 0,
+              productwidth: 0,
+              productweight: 0,
+              productlength: 0,
+              productTags: 'qurbani, eid, sacrifice',
+              showOnHomeScreen: true,
+              whereToShow: 'home',
+              categoryId: '4',
+              discountAtOnce: 0,
+              ProductImages: [
+                {
+                  id: '4',
+                  productId: '3',
+                  imageUrl: '/uploads/products/qurbani.jpg'
                 }
               ]
             }
@@ -177,6 +229,31 @@ const OrderDetailsScreen = () => {
     );
   };
 
+  // Helper function to format prices
+  const formatPrice = (price: number | string | undefined) => {
+    if (price === undefined) return '0.00';
+    // Convert string to number if needed
+    const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
+    // Check if it's a valid number
+    return !isNaN(numericPrice) ? numericPrice.toFixed(2) : '0.00';
+  };
+
+  // Helper function to get the date string
+  const getOrderDate = (order: Order) => {
+    return order.orderDate || order.createdAt || new Date().toISOString();
+  };
+
+  // Helper function to get the total amount or price
+  const getOrderTotal = (order: Order) => {
+    return order.totalAmount || order.totalPrice || 0;
+  };
+
+  // Helper function to get the country currency symbol
+  const getCurrencySymbol = (order: Order | null) => {
+    if (!order) return '$'; // Default to $ if order is null
+    return (order.country === 'PAK') ? 'Rs.' : '$';
+  };
+
   const renderOrderItem = ({ item }: { item: OrderItem }) => {
     if (!item.Product) return null;
     
@@ -195,7 +272,13 @@ const OrderDetailsScreen = () => {
               {product.productName}
             </Text>
             <TouchableOpacity 
-              onPress={() => navigation.navigate('ProductDetails' as never, { productId: product.id.toString() } as never)}
+              onPress={() => {
+                if (product.id) {
+                  navigation.navigate('ProductDetails', { 
+                    productId: product.id.toString() 
+                  });
+                }
+              }}
             >
               <Text style={[styles.viewButton, { color: theme.colors.brand }]}>View</Text>
             </TouchableOpacity>
@@ -206,16 +289,24 @@ const OrderDetailsScreen = () => {
               Qty: {item.quantity}
             </Text>
             <Text style={[styles.price, { color: theme.colors.text }]}>
-              {order?.country === 'PAK' ? 'Rs.' : '$'} {item.price.toFixed(2)}
+              {getCurrencySymbol(order)} {formatPrice(item.price)}
             </Text>
           </View>
+          
+          {item.isQurbani && item.EidHour && (
+            <View style={styles.qurbaniInfo}>
+              <Text style={[styles.qurbaniLabel, { color: theme.colors.primary }]}>
+                Eid Hour: {item.EidHour}
+              </Text>
+            </View>
+          )}
           
           <View style={styles.subtotalRow}>
             <Text style={[styles.subtotalLabel, { color: theme.colors.textSecondary }]}>
               Subtotal:
             </Text>
             <Text style={[styles.subtotal, { color: theme.colors.brand }]}>
-              {order?.country === 'PAK' ? 'Rs.' : '$'} {(item.price * item.quantity).toFixed(2)}
+              {getCurrencySymbol(order)} {formatPrice(Number(item.price) * item.quantity)}
             </Text>
           </View>
         </View>
@@ -293,7 +384,7 @@ const OrderDetailsScreen = () => {
                   Date:
                 </Text>
                 <Text style={[styles.metaValue, { color: theme.colors.text }]}>
-                  {new Date(order.orderDate).toLocaleDateString()}
+                  {new Date(getOrderDate(order)).toLocaleDateString()}
                 </Text>
               </View>
               
@@ -311,10 +402,65 @@ const OrderDetailsScreen = () => {
                   Total:
                 </Text>
                 <Text style={[styles.metaValue, { color: theme.colors.text, fontWeight: 'bold' }]}>
-                  {order.country === 'PAK' ? 'Rs.' : '$'} {order.totalAmount.toFixed(2)}
+                  {getCurrencySymbol(order)} {formatPrice(getOrderTotal(order))}
                 </Text>
               </View>
             </View>
+            
+            {/* Payment details if available */}
+            {order.paymentStatus && (
+              <View style={styles.paymentDetails}>
+                <Text style={[styles.paymentTitle, { color: theme.colors.text }]}>
+                  Payment Details
+                </Text>
+                
+                <View style={styles.paymentRow}>
+                  <Text style={[styles.paymentLabel, { color: theme.colors.textSecondary }]}>
+                    Payment Status:
+                  </Text>
+                  <Text style={[
+                    styles.paymentValue, 
+                    { 
+                      color: order.paymentStatus === 'paid' 
+                        ? theme.colors.success 
+                        : order.paymentStatus === 'failed'
+                          ? theme.colors.error
+                          : theme.colors.warning
+                    }
+                  ]}>
+                    {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                  </Text>
+                </View>
+                
+                {order.transactionId && (
+                  <View style={styles.paymentRow}>
+                    <Text style={[styles.paymentLabel, { color: theme.colors.textSecondary }]}>
+                      Transaction ID:
+                    </Text>
+                    <Text style={[styles.paymentValue, { color: theme.colors.text }]}>
+                      {order.transactionId}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+            
+            {/* Shipping address if available */}
+            {(order.city || order.street || order.postcodeZip) && (
+              <View style={styles.shippingDetails}>
+                <Text style={[styles.shippingTitle, { color: theme.colors.text }]}>
+                  Shipping Address
+                </Text>
+                
+                <Text style={[styles.addressText, { color: theme.colors.text }]}>
+                  {[
+                    order.street, 
+                    order.city, 
+                    order.postcodeZip
+                  ].filter(Boolean).join(', ')}
+                </Text>
+              </View>
+            )}
           </View>
           
           {/* Order Items */}
@@ -337,7 +483,7 @@ const OrderDetailsScreen = () => {
                 Subtotal
               </Text>
               <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-                {order.country === 'PAK' ? 'Rs.' : '$'} {order.totalAmount.toFixed(2)}
+                {getCurrencySymbol(order)} {formatPrice(getOrderTotal(order))}
               </Text>
             </View>
             
@@ -346,7 +492,7 @@ const OrderDetailsScreen = () => {
                 Shipping
               </Text>
               <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-                {order.country === 'PAK' ? 'Rs.' : '$'} 0.00
+                {getCurrencySymbol(order)} 0.00
               </Text>
             </View>
             
@@ -355,7 +501,7 @@ const OrderDetailsScreen = () => {
                 Tax
               </Text>
               <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-                {order.country === 'PAK' ? 'Rs.' : '$'} 0.00
+                {getCurrencySymbol(order)} 0.00
               </Text>
             </View>
             
@@ -364,7 +510,7 @@ const OrderDetailsScreen = () => {
                 Total
               </Text>
               <Text style={[styles.totalValue, { color: theme.colors.brand }]}>
-                {order.country === 'PAK' ? 'Rs.' : '$'} {order.totalAmount.toFixed(2)}
+                {getCurrencySymbol(order)} {formatPrice(getOrderTotal(order))}
               </Text>
             </View>
           </View>
@@ -500,6 +646,48 @@ const styles = StyleSheet.create({
   metaValue: {
     fontSize: 14,
   },
+  paymentDetails: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEEEE',
+    paddingTop: 16,
+  },
+  paymentTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  paymentLabel: {
+    fontSize: 14,
+  },
+  paymentValue: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  shippingDetails: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEEEE',
+    paddingTop: 16,
+  },
+  shippingTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  addressText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
   orderItem: {
     flexDirection: 'row',
     marginBottom: 16,
@@ -593,6 +781,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 10,
+  },
+  qurbaniInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  qurbaniLabel: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 

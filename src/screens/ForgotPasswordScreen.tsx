@@ -13,7 +13,7 @@ import {
   Keyboard
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { AuthScreenNavigationProp } from '../types/navigation.types';
+import { AuthStackNavigationProp } from '../types/navigation.types';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuthStore } from '../stores/authStore';
 import Button from '../components/common/Button';
@@ -21,7 +21,7 @@ import KeyboardAwareInput from '../components/common/KeyboardAwareInput';
 import { Ionicons } from '@expo/vector-icons';
 
 const ForgotPasswordScreen = () => {
-  const navigation = useNavigation<AuthScreenNavigationProp<'ForgotPassword'>>();
+  const navigation = useNavigation<AuthStackNavigationProp>();
   const { theme } = useTheme();
   const { resetPassword, isLoading, error, clearError } = useAuthStore();
   
@@ -74,7 +74,23 @@ const ForgotPasswordScreen = () => {
         await resetPassword(email);
         setIsSubmitted(true);
       } catch (error) {
-        Alert.alert('Error', 'Failed to send reset password email. Please try again.');
+        console.error('Reset password error:', error);
+        let errorMessage = "Failed to send reset password email";
+        
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'object' && error !== null) {
+          const errorObj = error as any;
+          if (errorObj.error) {
+            errorMessage = typeof errorObj.error === 'string' 
+              ? errorObj.error 
+              : JSON.stringify(errorObj.error);
+          } else if (errorObj.message) {
+            errorMessage = errorObj.message;
+          }
+        }
+        
+        Alert.alert('Error', errorMessage);
       }
     }
   };
@@ -117,7 +133,7 @@ const ForgotPasswordScreen = () => {
             Forgot Password
           </Text>
         </View>
-          
+        
         {!isSubmitted ? (
           <>
             <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>

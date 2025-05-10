@@ -1,5 +1,5 @@
 import React from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../types/navigation.types';
 import CountrySelectScreen from '../screens/CountrySelectScreen';
 import LoginScreen from '../screens/LoginScreen';
@@ -7,17 +7,16 @@ import RegisterScreen from '../screens/RegisterScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 
 // Create the auth stack navigator
-const Stack = createStackNavigator<AuthStackParamList>();
+const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 const AuthNavigator = () => {
   return (
     <Stack.Navigator
-      initialRouteName="Welcome"
+      initialRouteName="Login"
       screenOptions={{
         headerShown: false,
-        cardStyle: { backgroundColor: 'white' },
       }}
-    >s
+    >
       <Stack.Screen name="CountrySelect" component={CountrySelectScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
