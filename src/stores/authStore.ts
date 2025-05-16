@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/api.service';
-
+import { handleUnauthorized } from '../utils/authUtils';
 
 interface User {
   id: string;
@@ -21,16 +21,17 @@ interface AuthState {
   userCountry: string | null;
   resetPasswordEmail: string | null;
   resetCodeVerified: boolean;
-  
+
   // Auth actions
   register: (name: string, email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  verifyResetCode: (email: string, code: string) => Promise<void>;
-  setNewPassword: (email: string, newPassword: string) => Promise<void>;
+  forgetPassword: (email: string) => Promise<void>;
+  verifyOtpCode: (email: string, code: string) => Promise<void>;
+  changePassword: (email: string, newPassword: string) => Promise<void>;
   clearError: () => void;
   setUserCountry: (country: string) => void;
+  handleUnauthorized: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -44,12 +45,11 @@ export const useAuthStore = create<AuthState>()(
       userCountry: null,
       resetPasswordEmail: null,
       resetCodeVerified: false,
-      
+
       register: async (name, email, password) => {
         set({ isLoading: true, error: null });
         try {
           const response = await authService.signUp(name, email, password);
-          
           if (response.status === 201) {
             set({ isLoading: false });
           } else {
@@ -57,19 +57,15 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Registration failed';
-          set({ 
-            error: errorMessage,
-            isLoading: false
-          });
-          throw new Error(errorMessage); 
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
         }
       },
-      
+
       signIn: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
           const response = await authService.signIn(email, password);
-          
           if (response.status === 200) {
             const user: User = {
               id: String(response.id || ''),
@@ -77,8 +73,7 @@ export const useAuthStore = create<AuthState>()(
               email: response.email || '',
               country: get().userCountry,
             };
-            
-            set({ 
+            set({
               user,
               token: response.token || null,
               isAuthenticated: true,
@@ -89,109 +84,105 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Login failed';
-          set({ 
-            error: errorMessage,
-            isLoading: false
-          });
-          throw new Error(errorMessage); 
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
         }
       },
 
-      // Sign out
       signOut: async () => {
         set({ isLoading: true });
         try {
           await authService.logout();
-          
-          set({ 
+          set({
             user: null,
             token: null,
             isAuthenticated: false,
             isLoading: false,
+            resetPasswordEmail: null,
+            resetCodeVerified: false,
           });
         } catch (error) {
-          set({ 
+          set({
             error: error instanceof Error ? error.message : 'Logout failed',
-            isLoading: false
+            isLoading: false,
           });
         }
       },
-      
-      // Reset password
-      resetPassword: async (email) => {
+
+      forgetPassword: async (email) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await authService.resetPassword(email);
-          
+          const response = await authService.forgetPassword(email);
           if (response.status === 200) {
-            set({ 
+            set({
               isLoading: false,
               resetPasswordEmail: email,
-              resetCodeVerified: false
+              resetCodeVerified: false,
             });
           } else {
-            throw new Error(response.message || 'Password reset failed');
+            throw new Error(response.message || 'Failed to send reset code');
           }
         } catch (error) {
-          set({ 
-            error: error instanceof Error ? error.message : 'Password reset failed',
-            isLoading: false
-          });
-          throw error;
+          const errorMessage = error instanceof Error ? error.message : 'Failed to send reset code';
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
         }
       },
-      
-      // Verify reset code
-      verifyResetCode: async (email, code) => {
+
+      verifyOtpCode: async (email, code) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await authService.verifyResetCode(email, code);
-          
+          const response = await authService.verifyOtpCode(email, code);
           if (response.status === 200) {
-            set({ 
+            set({ isLoading: false, resetCodeVerified: true });
+          } else {
+            throw new Error(response.message || 'OTP verification failed');
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'OTP verification failed';
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
+        }
+      },
+
+      changePassword: async (email, newPassword) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await authService.changePassword(email, newPassword);
+          if (response.status === 200) {
+            set({
               isLoading: false,
-              resetCodeVerified: true
+              resetPasswordEmail: null,
+              resetCodeVerified: false,
             });
           } else {
-            throw new Error(response.message || 'Reset code verification failed');
+            throw new Error(response.message || 'Password change failed');
           }
         } catch (error) {
-          set({ 
-            error: error instanceof Error ? error.message : 'Reset code verification failed',
-            isLoading: false
-          });
-          throw error;
+          const errorMessage = error instanceof Error ? error.message : 'Password change failed';
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
         }
       },
-      
-      // Set new password
-      setNewPassword: async (email, newPassword) => {
-        set({ isLoading: true, error: null });
-        try {
-          const response = await authService.setNewPassword(email, newPassword);
-          
-          if (response.status === 200) {
-            set({ isLoading: false });
-          } else {
-            throw new Error(response.message || 'Password set failed');
-          }
-        } catch (error) {
-          set({ 
-            error: error instanceof Error ? error.message : 'Password set failed',
-            isLoading: false
-          });
-        }
-      },
-      
-      // Clear error message
+
       clearError: () => set({ error: null }),
-      
-      // Set user country
+
       setUserCountry: (country) => set({ userCountry: country }),
+
+      handleUnauthorized: async () => {
+        await handleUnauthorized();
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          resetPasswordEmail: null,
+          resetCodeVerified: false,
+        });
+      },
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
-); 
+);

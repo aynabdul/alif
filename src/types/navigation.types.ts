@@ -42,6 +42,7 @@ export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+  ChangePassword: { email: string };
 };
 
 // Root Stack Parameter List

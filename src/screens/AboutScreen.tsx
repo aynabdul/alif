@@ -1,3 +1,4 @@
+// src/screens/AboutScreen.tsx
 import React from 'react';
 import {
   View,
@@ -11,13 +12,18 @@ import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const TAB_BAR_HEIGHT = 60; 
+const TAB_BAR_HEIGHT = 60;
 
 const AboutScreen = () => {
-  const { theme } = useTheme();
+  const { theme, country } = useTheme(); // Destructure country from useTheme
   const insets = useSafeAreaInsets();
 
   const windowWidth = Dimensions.get('window').width;
+
+  // Determine logo based on country
+  const logoSource = country === 'US'
+    ? require('../../assets/logoAmerica.png')
+    : require('../../assets/Logo.png');
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -31,7 +37,7 @@ const AboutScreen = () => {
           {/* Our Story Section */}
           <View style={[styles.section, { backgroundColor: theme.colors.cardBackground }]}>
             <Image
-              source={require('../../assets/Logo.png')}
+              source={logoSource} // Use dynamic logo source
               style={styles.logo}
               resizeMode="contain"
             />

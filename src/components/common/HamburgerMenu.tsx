@@ -1,3 +1,4 @@
+// src/components/HamburgerMenu.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -10,6 +11,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -22,7 +24,7 @@ interface HamburgerMenuProps {
 }
 
 const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ categories }) => {
-  const { theme } = useTheme();
+  const { theme, country } = useTheme(); // Destructure country from useTheme
   const navigation = useNavigation<RootStackNavigationProp>();
   const [isOpen, setIsOpen] = useState(false);
   const [showShopDropdown, setShowShopDropdown] = useState(false);
@@ -36,6 +38,10 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ categories }) => {
       setShowQurbaniDropdown(false);
     }
   };
+    // Determine logo based on country
+    const logoSource = country === 'US'
+    ? require('../../../assets/logoAmerica.png')
+    : require('../../../assets/Logo.png');
 
   const handleCategoryPress = (categoryId: string, categoryName: string) => {
     setIsOpen(false);
@@ -67,6 +73,8 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ categories }) => {
     navigation.navigate('About');
   };
 
+
+
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
@@ -89,9 +97,11 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ categories }) => {
                 ]}
               >
                 <View style={styles.header}>
-                  <Text style={[styles.headerText, { color: theme.colors.text }]}>
-                    Menu
-                  </Text>
+                  <Image
+                    source={logoSource} // Use dynamic logo
+                    style={styles.logo}
+                    resizeMode="contain"
+                  />
                   <TouchableOpacity onPress={toggleMenu} style={styles.closeButton}>
                     <Ionicons name="close" size={24} color={theme.colors.text} />
                   </TouchableOpacity>
@@ -252,9 +262,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
-  headerText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  logo: {
+    width: 100, // Adjusted size to fit header
+    height: 40,  // Adjusted size to fit header
   },
   closeButton: {
     padding: 5,
@@ -292,4 +302,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HamburgerMenu; 
+export default HamburgerMenu;

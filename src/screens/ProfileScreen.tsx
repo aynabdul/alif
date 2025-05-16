@@ -1,3 +1,4 @@
+// src/screens/ProfileScreen.tsx
 import React from 'react';
 import { 
   View, 
@@ -20,6 +21,9 @@ const ProfileScreen = () => {
   const { theme } = useTheme();
   const navigation = useNavigation<RootStackNavigationProp>();
   const { user, isAuthenticated, signOut } = useAuthStore();
+
+  // Get the first two letters of the user's name (if available)
+  const userInitials = user?.name ? user.name.substring(0, 2).toUpperCase() : 'UN';
 
   const menuItems = [
     ...(isAuthenticated ? [
@@ -76,10 +80,9 @@ const ProfileScreen = () => {
         {isAuthenticated ? (
           <View style={[styles.profileCard, { backgroundColor: theme.colors.card }]}>
             <View style={styles.profileHeader}>
-              <Image 
-                source={require('../../assets/default-avatar.png')} 
-                style={styles.avatar}
-              />
+              <View style={styles.initialsContainer}>
+                <Text style={styles.initialsText}>{userInitials}</Text>
+              </View>
               <View style={styles.profileInfo}>
                 <Text style={[styles.profileName, { color: theme.colors.text }]}>
                   {user?.name || 'User Name'}
@@ -99,22 +102,22 @@ const ProfileScreen = () => {
               Access your orders and account settings
             </Text>
             <View style={styles.authButtonsContainer}>
-            <TouchableOpacity
-              style={[styles.authButton, { backgroundColor: theme.colors.brand, width: '100%' }]}
-              onPress={() => {
-                navigation.navigate('Auth', { screen: 'Login' });
-              }}
-            >
-              <Text style={styles.authButtonText}>Sign In</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.authButton, { backgroundColor: theme.colors.primary, marginTop: 10, width: '100%' }]}
-              onPress={() => {
-                navigation.navigate('Auth', { screen: 'Register' });
-              }}
-            >
-              <Text style={styles.authButtonText}>Sign Up</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.authButton, { backgroundColor: theme.colors.brand }]}
+                onPress={() => {
+                  navigation.navigate('Auth', { screen: 'Login' });
+                }}
+              >
+                <Text style={[styles.authButtonText, { textAlign: 'center' }]}>Sign In</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.authButton, { backgroundColor: theme.colors.primary, marginTop: 10 }]}
+                onPress={() => {
+                  navigation.navigate('Auth', { screen: 'Register' });
+                }}
+              >
+                <Text style={[styles.authButtonText, { textAlign: 'center' }]}>Sign Up</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -137,11 +140,13 @@ const ProfileScreen = () => {
         
         {isAuthenticated && (
           <TouchableOpacity 
-            style={[styles.logoutButton, { backgroundColor: theme.colors.error }]}
+          style={[styles.authButton, { backgroundColor: theme.colors.primary, marginBottom: 20 }]} // Use same style as authButton
             onPress={handleLogout}
           >
-            <Ionicons name="log-out-outline" size={20} color="white" />
-            <Text style={styles.logoutText}>Logout</Text>
+            <View style={styles.logoutButtonContent }>
+              <Ionicons name="log-out-outline" size={20} color="white" />
+              <Text style={[styles.authButtonText, { textAlign: 'center', marginLeft: 8 }]}>Logout</Text>
+            </View>
           </TouchableOpacity>
         )}
         
@@ -185,11 +190,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  avatar: {
+  initialsContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
+    backgroundColor: '#e0e0e0', // Light gray background for the initials circle
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 15,
+  },
+  initialsText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333', // Dark color for initials
   },
   profileInfo: {
     flex: 1,
@@ -223,9 +236,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   authButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    width: '100%',
+    paddingVertical: 13,
+    paddingHorizontal: 10,
     borderRadius: 8,
+    justifyContent: 'center', // Center content vertically
+    alignItems: 'center', // Center content horizontally
   },
   authButtonText: {
     color: 'white',
@@ -254,19 +270,10 @@ const styles = StyleSheet.create({
     marginLeft: 15,
     fontSize: 16,
   },
-  logoutButton: {
+  logoutButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginBottom: 30,
-  },
-  logoutText: {
-    color: 'white',
-    fontWeight: '500',
-    marginLeft: 8,
-    fontSize: 16,
   },
   footer: {
     alignItems: 'center',

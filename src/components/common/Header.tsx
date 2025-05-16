@@ -33,7 +33,7 @@ const Header: React.FC<HeaderProps> = ({ categories }) => {
       <TouchableOpacity style={styles.phoneButton} onPress={handlePhonePress}>
         <Ionicons name="call-outline" size={18} color={theme.colors.text} />
         <Text style={[styles.phoneText, { color: theme.colors.text }]}>
-          +1 888 321 ALIF
+          Get in Touch
         </Text>
       </TouchableOpacity>
     </View>

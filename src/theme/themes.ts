@@ -48,6 +48,7 @@ export interface CustomTheme {
       900: string;
       950: string;
     };
+    disabled: string;
   };
   spacing: {
     xs: number;
@@ -133,7 +134,8 @@ export const pakTheme: CustomTheme = {
       800: "#454545",
       900: "#212121",
       950: "#121212"
-    }
+    },
+    disabled: '#CCCCCC',
   },
   spacing: {
     xs: 4,
@@ -229,7 +231,8 @@ export const usTheme: CustomTheme = {
       800: "#454545",
       900: "#212121",
       950: "#121212"
-    }
+    },
+    disabled: '#CCCCCC',
   },
   spacing: {
     xs: 4,

@@ -1,3 +1,4 @@
+// src/screens/OrdersScreen.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -7,6 +8,10 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  TextInput,
+  ScrollView,
+  Animated,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
@@ -23,12 +28,50 @@ const OrdersScreen = () => {
   const { user, token } = useAuthStore();
   
   const [orders, setOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [noOrders, setNoOrders] = useState(false);
+
+  // Animation values for fade-in effect
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const translateY = React.useRef(new Animated.Value(50)).current;
 
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  useEffect(() => {
+    // Animate cards when orders are loaded
+    if (filteredOrders.length > 0 && !loading) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [filteredOrders, loading]);
+
+  useEffect(() => {
+    const term = searchTerm.toLowerCase();
+    const filtered = orders.filter((order) =>
+      order?.OrderItems?.some((item) =>
+        item?.Product?.productName?.toLowerCase().includes(term) ||
+        item?.Qurbani?.title?.toLowerCase().includes(term)
+      ) ||
+      order?.status?.toLowerCase().includes(term) ||
+      order?.paymentStatus?.toLowerCase().includes(term)
+    );
+    setFilteredOrders(filtered);
+  }, [searchTerm, orders]);
 
   const fetchOrders = async () => {
     if (!user?.id || !token) {
@@ -40,7 +83,6 @@ const OrdersScreen = () => {
     try {
       setLoading(true);
       
-      // Validate token before proceeding
       const isTokenValid = await authService.checkAndRefreshToken();
       if (!isTokenValid) {
         setError('Your session has expired. Please sign in again to view your orders.');
@@ -54,34 +96,52 @@ const OrdersScreen = () => {
       
       console.log('Fetching orders for user ID:', user.id);
       
-      const response = await orderService.getOrderHistory(user.id);
-      
-      // Always treat success response with empty orders array as valid
-      if (response.success) {
-        console.log('Orders loaded:', response.orders?.length || 0);
-        setOrders(response.orders || []);
-        setError(null); // Clear any previous errors
-      } else {
-        setError('Failed to load orders');
-      }
-    } catch (err) {
-      console.error('Error fetching orders:', err);
-      
-      // Check for specific errors
-      if (err instanceof Error) {
-        if (err.message.includes('Authentication token not found') || err.message.includes('401')) {
+      try {
+        const response = await orderService.getOrderHistory(user.id);
+        
+        if (response.success) {
+          console.log('Orders loaded:', response.orders?.length || 0);
+          
+          // Handle case where user has no orders
+          if (!response.orders || response.orders.length === 0) {
+            setNoOrders(true);
+            setOrders([]);
+            setFilteredOrders([]);
+          } else {
+            setNoOrders(false);
+            setOrders(response.orders);
+            setFilteredOrders(response.orders);
+          }
+          setError(null);
+        } else {
+          // Handle API error response that's not a 404
+          setError('Failed to load orders');
+        }
+      } catch (apiError: any) {
+        // Check if this is a 404 "No orders found" response
+        if (apiError?.response?.status === 404 && 
+            apiError?.response?.data?.message?.toLowerCase().includes('no orders found')) {
+          console.log('No orders found for this customer - valid empty response');
+          setNoOrders(true);
+          setOrders([]);
+          setFilteredOrders([]);
+          setError(null);
+        } else if (apiError?.message?.includes('401') || 
+                  apiError?.response?.status === 401 ||
+                  apiError?.message?.includes('Authentication token not found')) {
           setError('Your session has expired. Please sign in again to view your orders.');
-          // Force logout and redirect to Auth screen
           setTimeout(() => {
             useAuthStore.getState().signOut();
             navigation.navigate('Auth');
           }, 2000);
         } else {
+          console.error('Order History Error:', apiError);
           setError('Failed to load your orders. Please try again later.');
         }
-      } else {
-        setError('Failed to load your orders. Please try again later.');
       }
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      setError('Failed to load your orders. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -93,33 +153,149 @@ const OrdersScreen = () => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
+    return date.toLocaleString('en-US', {
       day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true,
     });
   };
 
   const formatPrice = (price: number | string) => {
-    // Convert string to number if needed
     const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
-    // Check if it's a valid number
-    return !isNaN(numericPrice) ? numericPrice.toFixed(2) : '0.00';
+    return !isNaN(numericPrice) ? numericPrice.toLocaleString() : '0';
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string = '') => {
     switch (status.toLowerCase()) {
       case 'completed':
-        return theme.colors.success;
+        return '#4CAF50'; // Green
       case 'processing':
-        return theme.colors.primary;
+        return '#1976D2'; // Blue (from mobile theme)
       case 'pending':
-        return theme.colors.warning;
+        return '#e38520'; // Orange
       case 'cancelled':
-        return theme.colors.error;
+        return '#F44336'; // Red
       default:
-        return theme.colors.textSecondary;
+        return '#aaabad'; // Gray (default)
     }
+  };
+
+  // Render a single order card
+  const renderOrderCard = ({ item, index }: { item: Order; index: number }) => {
+    // Calculate animation delay based on index
+    const animationDelay = index * 100;
+    
+    // Create individual animation values for each card
+    const cardFade = fadeAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+    });
+    
+    const cardTranslateY = translateY.interpolate({
+      inputRange: [0, 50],
+      outputRange: [0, 50],
+    });
+
+    return (
+      <Animated.View
+        style={[
+          styles.orderCard,
+          { 
+            backgroundColor: theme.colors.card,
+            shadowColor: theme.colors.text,
+            opacity: cardFade,
+            transform: [{ translateY: cardTranslateY }],
+          }
+        ]}
+      >
+        <TouchableOpacity 
+          style={styles.cardContent}
+          activeOpacity={0.7}
+        >
+          <View style={styles.cardHeader}>
+            <View style={styles.orderNumberContainer}>
+              <Text style={styles.orderNumberLabel}>Order #:</Text>
+              <Text style={styles.orderNumber}>{index + 1}</Text>
+            </View>
+            <View style={styles.dateContainer}>
+              <Text style={styles.dateLabel}>Date:</Text>
+              <Text style={styles.dateValue}>{formatDate(item.orderDate || item.createdAt || '')}</Text>
+            </View>
+          </View>
+
+          <View style={styles.cardDivider} />
+
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>Products:</Text>
+            <View style={styles.productsContainer}>
+              {item?.OrderItems?.map((orderItem, i) => (
+                <Text key={i} style={styles.productText}>
+                  {orderItem?.Qurbani?.title && (
+                    <>
+                      Qurbani: {orderItem.Qurbani.title}{' '}
+                      <Text style={styles.quantityText}>(Qty: {orderItem.quantity})</Text>
+                    </>
+                  )}
+                  {orderItem?.Product?.productName && (
+                    <>
+                      Product: {orderItem.Product.productName}{' '}
+                      <Text style={styles.quantityText}>(Qty: {orderItem.quantity})</Text>
+                    </>
+                  )}
+                  {!orderItem?.Qurbani?.title && !orderItem?.Product?.productName && (
+                    <>
+                      - <Text style={styles.quantityText}>(Qty: {orderItem.quantity})</Text>
+                    </>
+                  )}
+                </Text>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>Total Quantity:</Text>
+            <Text style={styles.cardValue}>
+              {item.OrderItems?.reduce((sum, orderItem) => sum + (orderItem.quantity || 0), 0) || '0'}
+            </Text>
+          </View>
+
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>Total Amount:</Text>
+            <Text style={styles.cardValue}>
+              {item.country === 'PAK' ? '₨ ' : '$ '}
+              {formatPrice(item.totalAmount || item.totalPrice || 0)}
+            </Text>
+          </View>
+
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>Status:</Text>
+            <View
+              style={[
+                styles.statusChip,
+                { backgroundColor: getStatusColor(item.status) }
+              ]}
+            >
+              <Text style={styles.chipText}>{item.status || 'Unknown'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>Payment:</Text>
+            <View
+              style={[
+                styles.statusChip,
+                { backgroundColor: getStatusColor(item.paymentStatus || '') }
+              ]}
+            >
+              <Text style={styles.chipText}>{item.paymentStatus || 'Unknown'}</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
   };
 
   if (loading) {
@@ -175,90 +351,54 @@ const OrdersScreen = () => {
     );
   }
 
-  if (orders.length === 0) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <StatusBar style={theme.statusBarStyle} />
-        
-        <View style={styles.headerContainer}>
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>My Orders</Text>
-        </View>
-        
-        <View style={styles.emptyContainer}>
-          <Ionicons name="receipt-outline" size={64} color={theme.colors.textSecondary} />
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-            You haven't placed any orders yet
-          </Text>
-          <TouchableOpacity
-            style={[styles.shopNowButton, { backgroundColor: theme.colors.primary }]}
-            onPress={() => navigation.navigate('Main')}
-          >
-            <Text style={[styles.shopNowText, { color: 'white' }]}>
-              Shop Now
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar style={theme.statusBarStyle} />
       
       <View style={styles.headerContainer}>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>My Orders</Text>
-        <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-          {orders.length} {orders.length === 1 ? 'order' : 'orders'} found
-        </Text>
+        <Text style={[styles.headerTitle, { color: '#37474F' }]}>🛒 My Orders</Text>
       </View>
-      
-      <FlatList
-        data={orders}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.orderCard, { backgroundColor: theme.colors.card }]}
-            onPress={() => handleOrderPress(item.id.toString())}
-          >
-            <View style={styles.orderHeader}>
-              <Text style={[styles.orderNumber, { color: theme.colors.text }]}>
-                Order #{item.id}
-              </Text>
-              <Text style={[styles.orderDate, { color: theme.colors.textSecondary }]}>
-                {formatDate(item.orderDate || item.createdAt || '')}
-              </Text>
-            </View>
-            
-            <View style={styles.orderDetails}>
-              <View style={styles.orderInfo}>
-                <Text style={[styles.orderItemCount, { color: theme.colors.text }]}>
-                  {item.OrderItems?.length || 0} {item.OrderItems?.length === 1 ? 'item' : 'items'}
-                </Text>
-                <Text style={[styles.orderAmount, { color: theme.colors.primary }]}>
-                  {item.country === 'PAK' ? '₨ ' : '$ '}
-                  {formatPrice(item.totalAmount || item.totalPrice || 0)}
-                </Text>
-                {item.paymentStatus && (
-                  <Text style={[
-                    styles.paymentStatus, 
-                    { color: item.paymentStatus === 'paid' ? theme.colors.success : theme.colors.warning }
-                  ]}>
-                    Payment: {item.paymentStatus.charAt(0).toUpperCase() + item.paymentStatus.slice(1)}
-                  </Text>
-                )}
-              </View>
-              
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-                <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-                  {item.status}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
+
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={[styles.searchInput, { backgroundColor: '#fff', borderColor: theme.colors.border }]}
+          placeholder="Search by product name, status or payment..."
+          placeholderTextColor="#aaabad"
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+        />
+        <Ionicons name="search" size={20} color="#aaabad" style={styles.searchIcon} />
+      </View>
+
+      {noOrders || filteredOrders.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="receipt-outline" size={64} color="#aaabad" />
+          <Text style={[styles.emptyTitle, { color: '#37474F' }]}>
+            No Orders Found
+          </Text>
+          <Text style={[styles.emptyText, { color: '#616161' }]}>
+            {noOrders 
+              ? "You haven't placed any orders yet." 
+              : "No matching orders found for your search."}
+          </Text>
+          {noOrders && (
+            <TouchableOpacity 
+              style={[styles.shopNowButton, { backgroundColor: theme.colors.primary }]}
+              onPress={() => navigation.navigate('AllProducts')}
+            >
+              <Text style={styles.buttonText}>Shop Now</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : (
+        <FlatList
+          data={filteredOrders}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderOrderCard}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 };
@@ -274,14 +414,26 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontWeight: '700',
   },
-  headerSubtitle: {
-    fontSize: 14,
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    position: 'relative',
   },
-  listContent: {
-    padding: 16,
+  searchInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    paddingLeft: 40,
+    fontSize: 16,
+    color: '#37474F',
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: 28,
+    top: 26,
   },
   loadingContainer: {
     flex: 1,
@@ -326,6 +478,14 @@ const styles = StyleSheet.create({
     minWidth: 150,
     alignItems: 'center',
   },
+  shopNowButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    minWidth: 150,
+    alignItems: 'center',
+    marginTop: 20,
+  },
   buttonText: {
     color: 'white',
     fontSize: 16,
@@ -337,72 +497,112 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 8,
+  },
   emptyText: {
     fontSize: 16,
+    fontWeight: '500',
     textAlign: 'center',
-    marginTop: 16,
   },
-  shopNowButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  shopNowText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+  listContent: {
+    padding: 16,
+    paddingBottom: 24,
   },
   orderCard: {
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 12,
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
   },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+  cardContent: {
+    padding: 16,
   },
-  orderNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  orderDate: {
-    fontSize: 14,
-  },
-  orderDetails: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  orderInfo: {
-    flexDirection: 'column',
+  orderNumberContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  orderItemCount: {
+  orderNumberLabel: {
     fontSize: 14,
+    fontWeight: '600',
+    color: '#616161',
+    marginRight: 4,
+  },
+  orderNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#37474F',
+  },
+  dateContainer: {
+    alignItems: 'flex-end',
+  },
+  dateLabel: {
+    fontSize: 12,
+    color: '#616161',
+  },
+  dateValue: {
+    fontSize: 14,
+    color: '#37474F',
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#EEEEEE',
+    marginVertical: 12,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#616161',
+    width: '30%',
+  },
+  cardValue: {
+    fontSize: 14,
+    color: '#37474F',
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'right',
+  },
+  productsContainer: {
+    flex: 1,
+  },
+  productText: {
+    fontSize: 14,
+    color: '#37474F',
     marginBottom: 4,
   },
-  orderAmount: {
-    fontSize: 16,
+  quantityText: {
+    fontSize: 12,
+    color: '#616161',
+  },
+  statusChip: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    alignSelf: 'flex-end',
+  },
+  chipText: {
+    fontSize: 12,
     fontWeight: '600',
-  },
-  statusBadge: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  paymentStatus: {
-    fontSize: 14,
-    marginTop: 4,
+    color: '#fff',
   },
 });
 
-export default OrdersScreen; 
+export default OrdersScreen;

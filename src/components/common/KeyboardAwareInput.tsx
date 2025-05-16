@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Keyboard,
-  Platform,
-  Text,
-} from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, Keyboard, Platform, Text, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeContext';
 
@@ -42,7 +34,9 @@ const KeyboardAwareInput: React.FC<KeyboardAwareInputProps> = ({
 }) => {
   const { theme } = useTheme();
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const errorAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -65,11 +59,21 @@ const KeyboardAwareInput: React.FC<KeyboardAwareInputProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    Animated.timing(errorAnim, {
+      toValue: error ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [error]);
+
   const handleFocus = () => {
+    setIsFocused(true);
     inputRef.current?.focus();
   };
 
   const handleBlur = () => {
+    setIsFocused(false);
     inputRef.current?.blur();
   };
 
@@ -84,11 +88,21 @@ const KeyboardAwareInput: React.FC<KeyboardAwareInputProps> = ({
         </View>
       )}
 
-      <View style={[styles.inputContainer, { borderColor: error ? theme.colors.error : theme.colors.border }]}>
+      <View style={[
+        styles.inputContainer, 
+        { 
+          borderColor: error 
+            ? theme.colors.error 
+            : isFocused 
+              ? theme.colors.brand 
+              : theme.colors.border 
+        }
+      ]}>
         {keyboardType === 'phone-pad' && (
           <TouchableOpacity
             style={styles.countryCodeContainer}
             onPress={onCountryCodePress}
+            accessibilityLabel="Select country code"
           >
             <Text style={[styles.countryCode, { color: theme.colors.text }]}>
               {countryCode}
@@ -120,6 +134,8 @@ const KeyboardAwareInput: React.FC<KeyboardAwareInputProps> = ({
           secureTextEntry={secureTextEntry}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          accessibilityLabel={label}
+          accessibilityHint={placeholder}
         />
 
         {rightIcon ? (
@@ -130,6 +146,7 @@ const KeyboardAwareInput: React.FC<KeyboardAwareInputProps> = ({
           <TouchableOpacity
             style={styles.keyboardIcon}
             onPress={isKeyboardVisible ? handleBlur : handleFocus}
+            accessibilityLabel={isKeyboardVisible ? 'Hide keyboard' : 'Show keyboard'}
           >
             <Ionicons
               name={isKeyboardVisible ? 'chevron-up' : 'chevron-down'}
@@ -141,9 +158,14 @@ const KeyboardAwareInput: React.FC<KeyboardAwareInputProps> = ({
       </View>
 
       {error && (
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          {error}
-        </Text>
+        <Animated.View style={[
+          styles.errorContainer,
+          { opacity: errorAnim }
+        ]}>
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>
+            {error}
+          </Text>
+        </Animated.View>
       )}
     </View>
   );
@@ -163,15 +185,15 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderRadius: 8,
-    height: 48,
+    height: 50,
     backgroundColor: '#F5F5F5',
   },
   countryCodeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderRightWidth: 1,
     borderRightColor: '#E0E0E0',
     height: '100%',
@@ -187,27 +209,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   keyboardIcon: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     height: '100%',
     justifyContent: 'center',
   },
+  errorContainer: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#ffeeee',
+    borderWidth: 1,
+    borderColor: '#ffcccc',
+    marginTop: 6,
+  },
   errorText: {
     fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4,
+    textAlign: 'center',
   },
   leftIconContainer: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   rightIconContainer: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
 });
 
-export default KeyboardAwareInput; 
+export default KeyboardAwareInput;

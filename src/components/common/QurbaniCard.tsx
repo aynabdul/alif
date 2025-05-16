@@ -1,11 +1,12 @@
+// src/components/qurbani/QurbaniCard.tsx
 import React from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   Image, 
-  TouchableOpacity, 
-  Dimensions 
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -13,41 +14,38 @@ import { RootStackNavigationProp } from '../../types/navigation.types';
 import { Qurbani } from '../../types/api.types';
 import { useTheme } from '../../theme/ThemeContext';
 import { useCartStore } from '../../stores/cartStore';
+import { useWishlistStore } from '../../stores/wishlistStore';
 import { IMAGE_PLACEHOLDERS } from '../../constants';
-import Card from './Card';
 import { API_BASE_URL } from '../../config/api';
 
 interface QurbaniCardProps {
   qurbani: Qurbani;
+  onPress?: () => void;
 }
 
-const { width } = Dimensions.get('window');
-const cardWidth = width - 32; // Full width card with padding
-
-const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani }) => {
+const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { theme } = useTheme();
   const { addItem, country } = useCartStore();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlistStore();
+
+  const inWishlist = isInWishlist(qurbani.id);
   
-  // Get price based on country and support both naming conventions
-  const price = country === 'US' 
+  // Get price based on country
+  const startPrice = country === 'US' 
     ? (qurbani.qurbaniPriceUSA || qurbani.priceforus || 0)
     : (qurbani.qurbaniPricePak || qurbani.priceforpak || 0);
   
-  const currencySymbol = country === 'US' ? '$' : '₨';
+  const endPrice = country === 'US'
+    ? (qurbani.endpriceforus || qurbani.qurbaniPriceUSA || qurbani.priceforus || 0)
+    : (qurbani.endpriceforpak || qurbani.qurbaniPricePak || qurbani.priceforpak || 0);
   
-  // Get name and description
-  const name = qurbani.qurbaniName || qurbani.title || '';
-  const description = qurbani.qurbaniDescription || qurbani.description || '';
+  const currencySymbol = country === 'US' ? '$' : 'PKR ';
   
-  // Format date if available, or use placeholder
-  const formattedDate = qurbani.qurbaniDate 
-    ? new Date(qurbani.qurbaniDate).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
-    : 'Available for booking';
+  // Get name, subtitle, and category
+  const name = qurbani.qurbaniName || qurbani.title || 'Unnamed Qurbani';
+  const subtitle = qurbani.subtitle || '';
+  const category = qurbani.catagory || qurbani.catagory || ''; // Handle both 'category' and 'catagory' typos
   
   // Get the first qurbani image or use placeholder
   let imageUrl = IMAGE_PLACEHOLDERS.PRODUCT;
@@ -60,198 +58,204 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani }) => {
   
   // If the image URL is relative, prepend the API base URL
   if (imageUrl && imageUrl.startsWith('/')) {
-    const baseUrlWithoutApi = API_BASE_URL.replace(/\/api$/, '');
+    const baseUrlWithoutApi = API_BASE_URL.replace('/api', '');
     imageUrl = `${baseUrlWithoutApi}${imageUrl}`;
   }
   
   const handlePress = () => {
-    navigation.navigate('QurbaniDetails', { 
-      qurbaniId: qurbani.id
-    });
+    navigation.navigate('QurbaniDetails', { qurbaniId: qurbani.id });
   };
 
   const handleAddToCart = () => {
     addItem({
       id: qurbani.id,
       name: name,
-      price: price,
+      price: startPrice,
       quantity: 1,
       image: { uri: imageUrl },
-      type: 'qurbani'
+      type: 'qurbani',
     });
+    Alert.alert('Success', `${name} has been added to your cart.`);
+  };
+
+  const handleWishlistPress = () => {
+    if (inWishlist) {
+      removeFromWishlist(qurbani.id);
+      Alert.alert('Removed', `${name} has been removed from your wishlist.`);
+    } else {
+      addToWishlist({
+        id: qurbani.id,
+        productName: name,
+        priceforus: qurbani.priceforus || qurbani.qurbaniPriceUSA,
+        priceforpak: qurbani.priceforpak || qurbani.qurbaniPricePak,
+      } as any);
+      Alert.alert('Added', `${name} has been added to your wishlist.`);
+    }
   };
   
+  // Format price display as range
+  const priceDisplay = startPrice === endPrice
+    ? `${currencySymbol}${startPrice.toFixed(2)}`
+    : `${currencySymbol}${startPrice.toFixed(2)} - ${currencySymbol}${endPrice.toFixed(2)}`;
+  
+  // Use provided onPress handler or default to navigation handler
+  const cardPressHandler = onPress || handlePress;
+  
   return (
-    <Card
-      style={styles.card}
-      onPress={handlePress}
+    <TouchableOpacity
+      style={[styles.container, { backgroundColor: theme.colors.cardBackground }]}
+      onPress={cardPressHandler}
+      activeOpacity={0.8}
     >
-      <View style={styles.dateContainer}>
-        <Ionicons name="calendar-outline" size={16} color={theme.colors.primary} />
-        <Text style={[styles.date, { color: theme.colors.primary }]}>
-          {formattedDate}
-        </Text>
-      </View>
+      {false && ( // Removed discount tag since Qurbani doesn't use it
+        <View style={[styles.discountTag, { backgroundColor: theme.colors.brand }]}>
+          <Text style={styles.discountText}>0% OFF</Text>
+        </View>
+      )}
       
-      <View style={styles.content}>
-        <Image 
-          source={{ uri: imageUrl }} 
-          style={styles.image}
-          resizeMode="cover"
-        />
-        
-        <View style={styles.detailsContainer}>
-          <Text 
-            style={styles.title}
-            numberOfLines={2}
-          >
+      <Image
+        source={{ uri: imageUrl }}
+        style={styles.image}
+        resizeMode="contain"
+      />
+      
+      <View style={styles.detailsContainer}>
+        <View style={styles.nameRow}>
+          <Text style={[styles.name, { color: theme.colors.text }]} numberOfLines={2}>
             {name}
           </Text>
-          
+          {/* {category && (
+            <View style={styles.categoryContainer}>
+              <Text style={[styles.category, { color: theme.colors.textSecondary }]}>
+                {category}
+              </Text>
+            </View>
+          )} */}
+        </View>
+        
+        {subtitle && (
           <Text 
-            style={styles.description}
-            numberOfLines={3}
+            style={[styles.subtitle, { color: theme.colors.textSecondary }]}
+            numberOfLines={2}
           >
-            {description}
+            {subtitle}
           </Text>
-          
-          <View style={styles.footer}>
-            <View style={styles.priceContainer}>
-              <Text style={[styles.price, { color: theme.colors.primary }]}>
-                {currencySymbol}{price.toFixed(2)}
-              </Text>
-            </View>
-            
-            <View style={styles.quantityContainer}>
-              <Text style={styles.quantityLabel}>Available:</Text>
-              <Text style={[styles.quantity, { 
-                color: (qurbani.qurbaniQuantity || 10) > 0 
-                  ? theme.colors.success 
-                  : theme.colors.error 
-              }]}>
-                {qurbani.qurbaniQuantity || 10} {(qurbani.qurbaniQuantity || 10) === 1 ? 'animal' : 'animals'}
-              </Text>
-            </View>
-          </View>
-          
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={[styles.detailsButton, { backgroundColor: theme.colors.primary }]}
-              onPress={handlePress}
-            >
-              <Text style={styles.detailsButtonText}>View Details</Text>
-              <Ionicons name="arrow-forward" size={16} color="white" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.cartButton, { backgroundColor: theme.colors.secondary }]}
-              onPress={handleAddToCart}
-            >
-              <Ionicons name="cart-outline" size={20} color="white" />
-            </TouchableOpacity>
-          </View>
+        )}
+        
+        <View style={styles.priceContainer}>
+          <Text style={[styles.price, { color: theme.colors.brand }]}>
+            {priceDisplay}
+          </Text>
         </View>
       </View>
-    </Card>
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity 
+          style={[styles.wishlistButton, { backgroundColor: theme.colors.secondary }]}
+          onPress={handleWishlistPress}
+        >
+          <Ionicons
+            name={inWishlist ? 'heart' : 'heart-outline'}
+            size={20}
+            color={inWishlist ? theme.colors.error : 'white'}
+          />
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.cartButton, { backgroundColor: theme.colors.primary }]}
+          onPress={handleAddToCart}
+        >
+          <Ionicons name="cart-outline" size={20} color="white" />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    width: cardWidth,
-    margin: 16,
-    padding: 0,
-    overflow: 'hidden',
+  container: {
+    width: 202,
+    height: 320,
+    borderRadius: 12,
+    marginHorizontal: 8,
+    marginVertical: 8,
   },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  discountTag: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    zIndex: 1,
   },
-  date: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
-  },
-  content: {
-    flexDirection: 'row',
-    padding: 12,
+  discountText: {
+    color: 'white',
+    fontSize: 8,
+    fontWeight: 'bold',
   },
   image: {
-    width: 120,
-    height: 120,
-    borderRadius: 8,
+    width: '100%',
+    height: 140,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   detailsContainer: {
-    flex: 1,
-    marginLeft: 12,
+    padding: 8,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  footer: {
+  nameRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  name: {
+    fontSize: 14,
+    fontWeight: '700', // Bolder name
+    marginBottom: 1,
+    height: 32,
+    flex: 1,
+  },
+  categoryContainer: {
+    alignItems: 'flex-end',
+  },
+  category: {
+    fontSize: 10,
+    fontStyle: 'italic',
+    maxWidth: 50,
+    textAlign: 'right',
+  },
+  subtitle: {
+    fontSize: 13,
+    marginBottom: 8,
   },
   priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginBottom: 8,
   },
   price: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 'bold',
-  },
-  quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  quantityLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginRight: 4,
-  },
-  quantity: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   buttonContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingBottom: 8,
   },
-  detailsButton: {
-    flexDirection: 'row',
+  wishlistButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-    flex: 1,
-    marginRight: 8,
-  },
-  detailsButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-    marginRight: 4,
   },
   cartButton: {
     width: 40,
     height: 40,
-    borderRadius: 4,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
 });
 
-export default QurbaniCard; 
+export default QurbaniCard;

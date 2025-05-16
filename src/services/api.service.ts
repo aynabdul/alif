@@ -15,23 +15,24 @@ import {
   PaginatedResponse
 } from '../types/api.types';
 
-
+// Define response type for password reset operations
+interface PasswordResetResponse {
+  message: string;
+}
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 20000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Error handling helper
+// Error handling helper (unchanged)
 const handleApiError = (error: AxiosError): never => {
   let errorMessage = 'Unknown error occurred';
   
-  // Handle different types of errors
   if (!error.response) {
-    // Network error - no response received
     if (error.request) {
       errorMessage = 'Network Error: Server is unreachable or not responding';
       console.error('Network Error Details:', {
@@ -39,11 +40,9 @@ const handleApiError = (error: AxiosError): never => {
         message: error.message
       });
     } else {
-      // Request setup error
       errorMessage = `Request Error: ${error.message}`;
     }
   } else if (error.response.data) {
-    // Try to extract message from response data
     const responseData = error.response.data as any;
     if (typeof responseData === 'object' && responseData.message) {
       errorMessage = `Server Error (${error.response.status}): ${responseData.message}`;
@@ -99,15 +98,13 @@ export const authService = {
   
   signUp: async (name: string, email: string, password: string, phone: string = ""): Promise<ApiResponse<any>> => {
     try {
-      // Split the full name into first and last name for the backend
-      // If name only has one word, use it as first name and leave lastName empty
       const nameParts = name.trim().split(' ');
       const firstName = nameParts[0];
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
       
       const response: AxiosResponse<ApiResponse<any>> = await api.post(ENDPOINTS.SIGNUP, { 
-        name: firstName, // Use first name as name
-        lastName,         // Send last name separately
+        name: firstName,
+        lastName,
         email,
         password,
         phone
@@ -118,27 +115,33 @@ export const authService = {
     }
   },
   
-  resetPassword: async (email: string): Promise<ApiResponse<any>> => {
+  forgetPassword: async (email: string): Promise<ApiResponse<PasswordResetResponse>> => {
     try {
-      const response: AxiosResponse<ApiResponse<any>> = await api.post(ENDPOINTS.SEND_RESET_CODE, { email });
+      const response: AxiosResponse<ApiResponse<PasswordResetResponse>> = await api.post(ENDPOINTS.SEND_RESET_CODE, { email });
       return response.data;
     } catch (error) {
       return handleApiError(error as AxiosError);
     }
   },
   
-  verifyResetCode: async (email: string, code: string): Promise<ApiResponse<any>> => {
+  verifyOtpCode: async (email: string, code: string): Promise<ApiResponse<PasswordResetResponse>> => {
     try {
-      const response: AxiosResponse<ApiResponse<any>> = await api.post(ENDPOINTS.VERIFY_RESET_CODE, { email, code });
+      const response: AxiosResponse<ApiResponse<PasswordResetResponse>> = await api.post(ENDPOINTS.VERIFY_RESET_CODE, { email, code });
+      if (response.data.message === 'Code verified successfully') {
+        await AsyncStorage.setItem('resetCodeVerified', 'true');
+      }
       return response.data;
     } catch (error) {
       return handleApiError(error as AxiosError);
     }
   },
   
-  setNewPassword: async (email: string, newPassword: string): Promise<ApiResponse<any>> => {
+  changePassword: async (email: string, newPassword: string): Promise<ApiResponse<PasswordResetResponse>> => {
     try {
-      const response: AxiosResponse<ApiResponse<any>> = await api.post(ENDPOINTS.RESET_PASSWORD, { email, newPassword });
+      const response: AxiosResponse<ApiResponse<PasswordResetResponse>> = await api.post(ENDPOINTS.RESET_PASSWORD, { email, newPassword });
+      if (response.data.message === 'Password reset successful') {
+        await AsyncStorage.removeItem('resetCodeVerified');
+      }
       return response.data;
     } catch (error) {
       return handleApiError(error as AxiosError);
@@ -150,9 +153,9 @@ export const authService = {
     await AsyncStorage.removeItem('userId');
     await AsyncStorage.removeItem('userRole');
     await AsyncStorage.removeItem('isAdmin');
+    await AsyncStorage.removeItem('resetCodeVerified'); // Clear reset flag on logout
   },
   
-  // Check if token is valid and refresh if needed
   checkAndRefreshToken: async (): Promise<boolean> => {
     try {
       const token = await AsyncStorage.getItem('userToken');
@@ -163,14 +166,12 @@ export const authService = {
         return false;
       }
       
-      // Try a simple API call to verify token
       const response = await api.get(ENDPOINTS.CUSTOMER_PROFILE(userId), {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
       
-      // If successful, token is still valid
       if (response.status === 200) {
         console.log('Token is valid');
         return true;

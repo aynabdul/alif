@@ -1,19 +1,28 @@
+// src/components/ProductCard.tsx
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Image, 
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useWishlistStore } from '../../stores/wishlistStore';
+import { useCartStore } from '../../stores/cartStore';
 import { Product } from '../../types/api.types';
 import { API_BASE_URL } from '../../config/api';
 
 export interface ProductCardProps {
   product: Product;
   onPress?: () => void;
-  onWishlistPress?: (isInWishlist: boolean) => void;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onWishlistPress }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => {
   const { theme, country } = useTheme();
+  const { addItem } = useCartStore();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlistStore();
 
   const inWishlist = isInWishlist(product.id);
@@ -23,14 +32,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onWishlistP
   const discountedPrice = isPakistan ? product.PriceAfterDiscountPak : product.PriceAfterDiscountUSA;
   const discountPercentage = isPakistan ? product.discountOfferinPak : product.discountOfferinUSA;
   const isDiscounted = isPakistan ? product.IsDiscountedProductInPak : product.IsDiscountedProductInUSA;
-  const currency = isPakistan ? 'Rs.' : '$';
+  const currency = isPakistan ? 'PKR' : '$';
 
   const imageUrl =
     product.ProductImages && product.ProductImages.length > 0
       ? {
           uri: `${API_BASE_URL.replace('/api', '')}${product.ProductImages[0].imageUrl}`,
-          width: 140,
-          height: 100,
+          width: 150,
+          height: 140,
           cache: 'force-cache' as 'force-cache',
         }
       : require('../../../assets/default-product.png');
@@ -38,8 +47,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onWishlistP
   const handleWishlistPress = () => {
     if (inWishlist) {
       removeFromWishlist(product.id);
+      Alert.alert('Removed', `${product.productName} has been removed from your wishlist.`);
     } else {
-      // Minimal data for wishlist
       const minimalProductData = {
         id: product.id,
         productName: product.productName,
@@ -57,10 +66,22 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onWishlistP
           : [],
       } as Product;
       addToWishlist(minimalProductData);
+      Alert.alert('Added', `${product.productName} has been added to your wishlist.`);
     }
-    if (onWishlistPress) {
-      onWishlistPress(!inWishlist);
-    }
+  };
+
+  const handleAddToCart = () => {
+    const price = isDiscounted ? discountedPrice : originalPrice;
+    addItem({
+      id: product.id,
+      name: product.productName,
+      price,
+      quantity: 1,
+      image: imageUrl,
+      categoryId: product.categoryId,
+      currency,
+    });
+    Alert.alert('Success', `${product.productName} has been added to your cart.`);
   };
 
   return (
@@ -74,24 +95,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onWishlistP
           <Text style={styles.discountText}>{discountPercentage}% OFF</Text>
         </View>
       )}
-      <TouchableOpacity
-        style={styles.wishlistButton}
-        onPress={handleWishlistPress}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Ionicons
-          name={inWishlist ? 'heart' : 'heart-outline'}
-          size={20}
-          color={inWishlist ? theme.colors.error : theme.colors.text}
-        />
-      </TouchableOpacity>
+      
       <Image
         source={imageUrl}
         style={styles.image}
         resizeMode="contain"
-        resizeMethod="resize"
-        progressiveRenderingEnabled={true}
       />
+      
       <View style={styles.detailsContainer}>
         <Text style={[styles.name, { color: theme.colors.text }]} numberOfLines={2}>
           {product.productName}
@@ -116,22 +126,37 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress, onWishlistP
           )}
         </View>
       </View>
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity 
+          style={[styles.wishlistButton, { backgroundColor: theme.colors.secondary }]}
+          onPress={handleWishlistPress}
+        >
+          <Ionicons
+            name={inWishlist ? 'heart' : 'heart-outline'}
+            size={20}
+            color={inWishlist ? theme.colors.error : 'white'}
+          />
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.cartButton, { backgroundColor: theme.colors.primary }]}
+          onPress={handleAddToCart}
+        >
+          <Ionicons name="cart-outline" size={20} color="white" />
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    width: 150,
-    borderRadius: 8,
-    marginHorizontal: 6,
-    marginBottom: 12,
-    // Removed shadow for performance
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 2 },
-    // shadowOpacity: 0.1,
-    // shadowRadius: 4,
-    // elevation: 2,
+    width: 170, 
+    height: 310,
+    borderRadius: 12,
+    marginHorizontal: 8,
+    marginVertical: 8,
   },
   discountTag: {
     position: 'absolute',
@@ -147,41 +172,33 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: 'bold',
   },
-  wishlistButton: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    zIndex: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 16,
-    padding: 4,
-  },
   image: {
     width: '100%',
-    height: 100,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    height: 170, // Increased height for better proportions
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   detailsContainer: {
     padding: 8,
   },
   name: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500',
-    marginBottom: 6,
-    height: 36,
+    marginBottom: 1,
+    height: 32,
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
+    marginBottom: 8,
   },
   price: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   originalPrice: {
-    fontSize: 10,
+    fontSize: 12,
     textDecorationLine: 'line-through',
     marginBottom: 2,
   },
@@ -189,10 +206,30 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   category: {
-    fontSize: 9,
+    fontSize: 10,
     fontStyle: 'italic',
     maxWidth: 50,
     textAlign: 'right',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+  },
+  wishlistButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
   TouchableOpacity,
   Image,
+  FlatList,
+  SectionList,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { qurbaniService } from '../services/api.service';
@@ -19,9 +20,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCartStore } from '../stores/cartStore';
 import { IMAGE_PLACEHOLDERS } from '../constants';
 import { API_BASE_URL } from '../config/api';
+import QurbaniCard from '../components/common/QurbaniCard';
 
 const QurbaniBookingScreen = () => {
-  const { theme } = useTheme();
+  const { theme, country } = useTheme();
   const navigation = useNavigation<RootStackNavigationProp>();
   const { addItem, country: storeCountry } = useCartStore();
   const [qurbanis, setQurbanis] = useState<Qurbani[]>([]);
@@ -30,7 +32,7 @@ const QurbaniBookingScreen = () => {
 
   useEffect(() => {
     fetchQurbanis();
-  }, []);
+  }, [country]);
 
   const fetchQurbanis = async () => {
     try {
@@ -42,10 +44,13 @@ const QurbaniBookingScreen = () => {
       
       if (response.success && response.data) {
         console.log('Filtering qurbanis for booking:', response.data);
+        // Filter by both page type AND country selection
+        const userCountry = country === 'PAK' ? 'Pakistan' : 'America';
         const bookingQurbanis = response.data.filter(
-          qurbani => qurbani.showinwhichpage === 'bookqurbani' || qurbani.showinwhichpage === 'booking'
+          qurbani => (qurbani.showinwhichpage === 'bookqurbani' || qurbani.showinwhichpage === 'booking') && 
+                    (!qurbani.countrySelection || qurbani.countrySelection === userCountry)
         );
-        console.log('Found booking qurbanis:', bookingQurbanis.length);
+        console.log(`Found booking qurbanis for ${userCountry}:`, bookingQurbanis.length);
         setQurbanis(bookingQurbanis);
       } else {
         console.error('API returned success=false or no data:', response);
@@ -60,60 +65,40 @@ const QurbaniBookingScreen = () => {
     }
   };
 
-  // Helper function to process image URLs
-  const getProcessedImageUrl = (imageUrl: string) => {
-    if (imageUrl && imageUrl.startsWith('/')) {
-      const baseUrlWithoutApi = API_BASE_URL.replace(/\/api$/, '');
-      return `${baseUrlWithoutApi}${imageUrl}`;
-    }
-    return imageUrl;
-  };
-
-  const handleQurbaniPress = (qurbaniId: string | number) => {
-    navigation.navigate('QurbaniDetails', { qurbaniId });
-  };
-
-  const handleAddToCart = (qurbani: Qurbani) => {
-    const name = qurbani.title || qurbani.qurbaniName || '';
-    const price = storeCountry === 'US' 
-      ? (qurbani.priceforus || qurbani.qurbaniPriceUSA || 0) 
-      : (qurbani.priceforpak || qurbani.qurbaniPricePak || 0);
-      
-    const imageUrl = getFirstImageUrl(qurbani);
+  // Group qurbanis by category
+  const qurbanisByCategory = useMemo(() => {
+    const grouped: { [key: string]: Qurbani[] } = {};
     
-    addItem({
-      id: qurbani.id,
-      name: name,
-      price: price,
-      quantity: 1,
-      image: { uri: imageUrl },
-      type: 'qurbani',
+    // Group by category
+    qurbanis.forEach(qurbani => {
+      const category = qurbani.catagory || 'Other';
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(qurbani);
     });
-  };
-
-  const getFirstImageUrl = (qurbani: Qurbani) => {
-    let imageUrl = IMAGE_PLACEHOLDERS.PRODUCT;
     
-    if (qurbani.qurbaniImages && qurbani.qurbaniImages.length > 0) {
-      imageUrl = qurbani.qurbaniImages[0].imageUrl;
-    } else if (qurbani.QurbaniImages && qurbani.QurbaniImages.length > 0) {
-      imageUrl = qurbani.QurbaniImages[0].imageUrl;
-    }
-    
-    return getProcessedImageUrl(imageUrl);
-  };
+    // Convert to sections for SectionList
+    return Object.keys(grouped).map(category => ({
+      title: category,
+      data: [grouped[category]] // Wrap in array for renderItem to receive array for horizontal FlatList
+    }));
+  }, [qurbanis]);
 
-  const getDisplayPrice = (qurbani: Qurbani) => {
-    const price = storeCountry === 'US' 
-      ? (qurbani.priceforus || qurbani.qurbaniPriceUSA || 0)
-      : (qurbani.priceforpak || qurbani.qurbaniPricePak || 0);
-      
-    const currency = storeCountry === 'US' ? 'USD' : 'PKR';
-    const discount = price * 0.1; // Example: 10% discount
-    const discountedPrice = price - discount;
+  const renderQurbaniItem = ({ item }: { item: Qurbani }) => (
+    <QurbaniCard qurbani={item} />
+  );
 
-    return { price, discountedPrice, currency, hasDiscount: true };
-  };
+  const renderCategorySection = ({ item, section }: { item: Qurbani[], section: { title: string } }) => (
+    <FlatList
+      horizontal
+      data={item}
+      renderItem={renderQurbaniItem}
+      keyExtractor={(item) => item.id.toString()}
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.horizontalListContent}
+    />
+  );
 
   if (loading) {
     return (
@@ -131,75 +116,35 @@ const QurbaniBookingScreen = () => {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar style={theme.statusBarStyle} backgroundColor="transparent" translucent />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={[styles.title, { color: theme.colors.text }]}>Book your Qurbani</Text>
-        <GuideCard />
-        {error ? (
-          <View style={styles.errorContainer}>
-            <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
-          </View>
-        ) : qurbanis.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-              No Qurbani options available for booking
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.qurbaniList}>
-            {qurbanis.map(qurbani => {
-              const { price, discountedPrice, currency, hasDiscount } = getDisplayPrice(qurbani);
-              const imageUrl = getFirstImageUrl(qurbani);
-              const name = qurbani.title || qurbani.qurbaniName || '';
-              const subtitle = qurbani.subtitle || '';
-
-              return (
-                <TouchableOpacity
-                  key={qurbani.id}
-                  style={[styles.qurbaniCard, { backgroundColor: theme.colors.card }]}
-                  onPress={() => handleQurbaniPress(qurbani.id)}
-                >
-                  <Image
-                    source={{ uri: getProcessedImageUrl(imageUrl) }}
-                    style={styles.qurbaniImage}
-                    defaultSource={require('../../assets/default-product.png')}
-                  />
-                  <View style={styles.qurbaniInfo}>
-                    <Text style={[styles.qurbaniTitle, { color: theme.colors.text }]}>
-                      {name}
-                    </Text>
-                    <Text style={[styles.qurbaniSubtitle, { color: theme.colors.textSecondary }]}>
-                      {subtitle}
-                    </Text>
-                    <View style={styles.priceRow}>
-                      {hasDiscount ? (
-                        <>
-                          <Text style={[styles.price, { color: theme.colors.text, textDecorationLine: 'line-through' }]}>
-                            {`${currency} ${price}`}
-                          </Text>
-                          <Text style={[styles.discountedPrice, { color: theme.colors.primary }]}>
-                            {`${currency} ${discountedPrice}`}
-                          </Text>
-                        </>
-                      ) : (
-                        <Text style={[styles.price, { color: theme.colors.text }]}>
-                          {`${currency} ${price}`}
-                        </Text>
-                      )}
-                      <TouchableOpacity onPress={() => handleAddToCart(qurbani)}>
-                        <Ionicons name="cart-outline" size={24} color={theme.colors.primary} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-      </ScrollView>
+      
+      {error ? (
+        <View style={styles.errorContainer}>
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+        </View>
+      ) : qurbanis.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+            No Qurbani options available for booking
+          </Text>
+        </View>
+      ) : (
+        <SectionList
+          sections={qurbanisByCategory}
+          keyExtractor={(item, index) => index.toString()}
+          renderSectionHeader={({ section: { title } }) => (
+            <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>{title}</Text>
+          )}
+          renderItem={renderCategorySection}
+          stickySectionHeadersEnabled={false}
+          ListHeaderComponent={
+            <>
+              <Text style={[styles.title, { color: theme.colors.text }]}>Book your Qurbani</Text>
+              <GuideCard />
+            </>
+          }
+          contentContainerStyle={styles.content}
+        />
+      )}
     </View>
   );
 };
@@ -208,11 +153,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
-  },
   content: {
     padding: 16,
+    paddingBottom: 32,
   },
   title: {
     fontSize: 24,
@@ -231,6 +174,8 @@ const styles = StyleSheet.create({
   errorContainer: {
     padding: 16,
     alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
   },
   errorText: {
     fontSize: 16,
@@ -239,55 +184,21 @@ const styles = StyleSheet.create({
   emptyContainer: {
     padding: 16,
     alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
   },
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
   },
-  qurbaniList: {
-    gap: 16,
-  },
-  qurbaniCard: {
-    flexDirection: 'row',
-    padding: 16,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  qurbaniImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 16,
-  },
-  qurbaniInfo: {
-    flex: 1,
-  },
-  qurbaniTitle: {
+  sectionHeader: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginVertical: 12,
+    paddingHorizontal: 8,
   },
-  qurbaniSubtitle: {
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  price: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  discountedPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+  horizontalListContent: {
+    paddingBottom: 16,
   },
 });
 

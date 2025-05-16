@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Image,
   StatusBar,
   Keyboard,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { AuthStackNavigationProp } from '../types/navigation.types';
@@ -39,32 +41,92 @@ const RegisterScreen = () => {
   
   const [registering, setRegistering] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Default to hidden
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // Default to hidden
+  const [registerError, setRegisterError] = useState<string | null>(null);
+
+  // Animation for logo
+  const logoAnim = useRef(new Animated.Value(1)).current;
+  const errorFadeAnim = useRef(new Animated.Value(0)).current;
+  const errorTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       'keyboardDidShow',
       () => {
         setKeyboardVisible(true);
+        Animated.timing(logoAnim, {
+          toValue: 0.6,
+          duration: 200,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }).start();
       }
     );
     const keyboardDidHideListener = Keyboard.addListener(
       'keyboardDidHide',
       () => {
         setKeyboardVisible(false);
+        Animated.timing(logoAnim, {
+          toValue: 1,
+          duration: 200,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }).start();
       }
     );
 
     return () => {
       keyboardDidHideListener.remove();
       keyboardDidShowListener.remove();
+      if (errorTimerRef.current) {
+        clearTimeout(errorTimerRef.current);
+      }
     };
   }, []);
 
+  // Handle error message display and auto-dismiss
+  useEffect(() => {
+    if (registerError || error) {
+      // Fade in the error message
+      Animated.timing(errorFadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+      
+      // Set timer to clear error after 2 seconds
+      if (errorTimerRef.current) {
+        clearTimeout(errorTimerRef.current);
+      }
+      
+      errorTimerRef.current = setTimeout(() => {
+        // Fade out the error message
+        Animated.timing(errorFadeAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => {
+          // Clear the error after animation completes
+          setRegisterError(null);
+          clearError();
+        });
+      }, 2000);
+    } else {
+      // Reset animation when error is cleared
+      errorFadeAnim.setValue(0);
+    }
+    
+    return () => {
+      if (errorTimerRef.current) {
+        clearTimeout(errorTimerRef.current);
+      }
+    };
+  }, [registerError, error]);
+
   const validateName = (value: string): boolean => {
     if (!value.trim()) {
-      setNameError('Name is required');
+      setNameError('Please enter your full name');
       return false;
     }
     if (value.trim().length < 3) {
@@ -78,7 +140,7 @@ const RegisterScreen = () => {
   const validateEmail = (value: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!value.trim()) {
-      setEmailError('Email is required');
+      setEmailError('Please enter your email');
       return false;
     }
     if (!emailRegex.test(value)) {
@@ -91,7 +153,7 @@ const RegisterScreen = () => {
 
   const validatePassword = (value: string): boolean => {
     if (!value) {
-      setPasswordError('Password is required');
+      setPasswordError('Please enter a password');
       return false;
     }
     if (value.length < 6) {
@@ -117,6 +179,7 @@ const RegisterScreen = () => {
 
   const handleRegister = async () => {
     clearError();
+    setRegisterError(null);
     
     const isNameValid = validateName(name);
     const isEmailValid = validateEmail(email);
@@ -144,7 +207,7 @@ const RegisterScreen = () => {
                   try {
                     await signIn(email, password);
                     console.log('Signed in successfully');
-                    resetRoot('Main');
+                    resetRoot('Profile'); // Redirect to Profile after auto-sign-in
                   } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : "Sign in failed";
                     Alert.alert("Sign In Error", errorMessage);
@@ -158,23 +221,25 @@ const RegisterScreen = () => {
           throw new Error(response.message || "Registration failed");
         }
       } catch (error) {
-        console.error('Registration error:', error);
-        let errorMessage = "Registration failed";
+        let errorMessage = 'Something went wrong. Please try again.';
         
         if (error instanceof Error) {
           errorMessage = error.message;
         } else if (typeof error === 'object' && error !== null) {
           const errorObj = error as any;
-          if (errorObj.message) {
+          
+          if (errorObj.response?.data?.message?.includes('already exists') || errorObj.response?.status === 400) {
+            errorMessage = 'An account with this email already exists';
+          } else if (errorObj.response?.status === 400) {
+            errorMessage = 'Invalid registration information';
+          } else if (errorObj.message?.includes('Network Error')) {
+            errorMessage = 'No internet connection. Please check your network';
+          } else if (errorObj.message) {
             errorMessage = errorObj.message;
-          } else if (errorObj.error) {
-            errorMessage = typeof errorObj.error === 'string' 
-              ? errorObj.error 
-              : JSON.stringify(errorObj.error);
           }
         }
         
-        Alert.alert("Registration Error", errorMessage);
+        setRegisterError(errorMessage);
       } finally {
         setRegistering(false);
       }
@@ -193,7 +258,7 @@ const RegisterScreen = () => {
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: '#F5F5F5' }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 20} // Adjusted offset
     >
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
       
@@ -201,23 +266,26 @@ const RegisterScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.logoContainer, keyboardVisible && styles.logoContainerCollapsed]}>
-          <Image 
-            source={require('../../assets/Logo.png')}
-            style={[styles.logo, keyboardVisible && styles.logoCollapsed]}
+        <View style={[styles.logoContainer]}>
+          <Animated.Image 
+            source={theme.country === 'US' ? require('../../assets/logoAmerica.png') : require('../../assets/Logo.png')}
+            style={[
+              styles.logo,
+              { transform: [{ scale: logoAnim }] }
+            ]} 
             resizeMode="contain"
           />
-          <Text style={[styles.brandText, { color: theme.colors.brand }, keyboardVisible && styles.brandTextCollapsed]}>
+          <Animated.Text style={[
+            styles.brandText, 
+            { color: theme.colors.brand, transform: [{ scale: logoAnim }] }
+          ]}>
             Alif Cattle & Goat Farm
-          </Text>
+          </Animated.Text>
         </View>
 
         <View style={styles.headerContainer}>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
-            Sign up to your Account
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-            Create an account to continue
+            Sign Up
           </Text>
         </View>
 
@@ -228,6 +296,7 @@ const RegisterScreen = () => {
             onChangeText={(text) => {
               setName(text);
               validateName(text);
+              if (registerError) setRegisterError(null);
             }}
             placeholder="Enter your full name"
             error={nameError}
@@ -240,6 +309,7 @@ const RegisterScreen = () => {
             onChangeText={(text) => {
               setEmail(text);
               validateEmail(text);
+              if (registerError) setRegisterError(null);
             }}
             placeholder="Enter your email"
             keyboardType="email-address"
@@ -256,6 +326,7 @@ const RegisterScreen = () => {
               if (confirmPassword) {
                 validateConfirmPassword(confirmPassword);
               }
+              if (registerError) setRegisterError(null);
             }}
             placeholder="Enter your password"
             secureTextEntry={!showPassword}
@@ -264,7 +335,7 @@ const RegisterScreen = () => {
             rightIcon={
               <TouchableOpacity onPress={togglePasswordVisibility}>
                 <Ionicons 
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                  name={showPassword ? 'eye-outline' : 'eye-off-outline'} 
                   size={22} 
                   color={theme.colors.textSecondary} 
                 />
@@ -278,6 +349,7 @@ const RegisterScreen = () => {
             onChangeText={(text) => {
               setConfirmPassword(text);
               validateConfirmPassword(text);
+              if (registerError) setRegisterError(null);
             }}
             placeholder="Confirm your password"
             secureTextEntry={!showConfirmPassword}
@@ -286,7 +358,7 @@ const RegisterScreen = () => {
             rightIcon={
               <TouchableOpacity onPress={toggleConfirmPasswordVisibility}>
                 <Ionicons 
-                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} 
+                  name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'} 
                   size={22} 
                   color={theme.colors.textSecondary} 
                 />
@@ -294,12 +366,12 @@ const RegisterScreen = () => {
             }
           />
 
-          {error && (
-            <View style={styles.errorContainer}>
+          {(registerError || error) && (
+            <Animated.View style={[styles.errorContainer, { opacity: errorFadeAnim }]}>
               <Text style={[styles.errorText, { color: theme.colors.error }]}>
-                {error}
+                {registerError || error}
               </Text>
-            </View>
+            </Animated.View>
           )}
 
           <Button
@@ -316,7 +388,7 @@ const RegisterScreen = () => {
             </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
               <Text style={[styles.loginLink, { color: theme.colors.brand }]}>
-                {' '}Sign In
+                {' Sign In'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -330,16 +402,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  headerContainer: {
+    alignItems: 'center', // Center title
+    marginBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  errorContainer: {
+    backgroundColor: '#ffeeee',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#ffcccc',
+  },
+  errorText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 20,
     paddingBottom: 40,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
+
   logoContainerCollapsed: {
     marginBottom: 15,
   },
@@ -361,30 +454,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 5,
   },
-  headerContainer: {
-    alignItems: 'flex-start',
-    marginBottom: 30,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
   headerSubtitle: {
     fontSize: 16,
   },
   formContainer: {
     width: '100%',
   },
-  errorContainer: {
-    backgroundColor: '#ffeeee',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  errorText: {
-    fontSize: 14,
-  },
+
   loginLinkContainer: {
     flexDirection: 'row',
     justifyContent: 'center',

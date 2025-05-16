@@ -1,3 +1,4 @@
+// src/screens/ContactScreen.tsx
 import React from 'react';
 import {
   View,
@@ -14,26 +15,40 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ContactScreen = () => {
-  const { theme } = useTheme();
+  const { theme, country } = useTheme();
+
+  // Determine contact details based on country
+  const isPakistan = country === 'PAK';
+  const phoneNumber = isPakistan ? '0305-2023333' : '(888)321-ALIF';
+  const locationAddress = isPakistan ? 'A&T Farms and Goat Farms' : '124 Mahoning Dr E, Lehighton, PA 18235';
+  const googleMapsUrl = isPakistan
+    ? 'https://www.google.com/maps/place/A%26T+farms+and+Goat+farms/@31.502411,74.492748,16z/data=!4m6!3m5!1s0x39190fe2f1a72309:0xfe835f57a2fd9ac3!8m2!3d31.502411!4d74.492748!16s%2Fg%2F11rb5hxgs9?hl=en&entry=ttu&g_ep=EgoyMDI1MDUwNy4wIKXMDSoASAFQAw%3D%3D'
+    : 'https://www.google.com/maps/place/124+Mahoning+Dr+E,+Lehighton,+PA+18235,+USA/@40.8233944,-75.7330596,13z/data=!4m6!3m5!1s0x89c5b326cc4983fd:0xb57848c20b8a849e!8m2!3d40.8274891!4d-75.7310466!16s%2Fg%2F11bw43x7wn?hl=en&entry=ttu&g_ep=EgoyMDI1MDUwNy4wIKXMDSoASAFQAw%3D%3D';
 
   const handlePhonePress = () => {
-    Linking.openURL('tel:+1888321ALIF');
+    Linking.openURL(`tel:${phoneNumber}`);
   };
 
   const handleEmailPress = () => {
-    Linking.openURL('mailto:contact@alifcattle.com');
+    Linking.openURL('mailto:admin@aliffarms.com');
   };
 
   const handleLocationPress = () => {
-    const address = Platform.select({
-      ios: 'maps:0,0?q=Alif+Cattle+%26+Goat+Farm',
-      android: 'geo:0,0?q=Alif+Cattle+%26+Goat+Farm',
-    });
-    Linking.openURL(address || '');
+    if (Platform.OS === 'web') {
+      // On web, open the Google Maps URL directly
+      Linking.openURL(googleMapsUrl);
+    } else {
+      // On mobile, use the native maps URI scheme
+      const address = Platform.select({
+        ios: `maps:0,0?q=${encodeURIComponent(locationAddress)}`,
+        android: `geo:0,0?q=${encodeURIComponent(locationAddress)}`,
+      });
+      Linking.openURL(address || '');
+    }
   };
 
   const handleWebsitePress = () => {
-    Linking.openURL('https://www.alifcattle.com');
+    Linking.openURL('https://www.aliffarms.com');
   };
 
   return (
@@ -51,7 +66,7 @@ const ContactScreen = () => {
                 </View>
                 <View style={styles.contactInfo}>
                   <Text style={[styles.contactLabel, { color: theme.colors.textSecondary }]}>Phone Number</Text>
-                  <Text style={[styles.contactValue, { color: theme.colors.text }]}>+1 888 321 ALIF</Text>
+                  <Text style={[styles.contactValue, { color: theme.colors.text }]}>{phoneNumber}</Text>
                   <Text style={[styles.contactHint, { color: theme.colors.textSecondary }]}>Tap to call</Text>
                 </View>
               </TouchableOpacity>
@@ -66,7 +81,7 @@ const ContactScreen = () => {
                 </View>
                 <View style={styles.contactInfo}>
                   <Text style={[styles.contactLabel, { color: theme.colors.textSecondary }]}>Email Address</Text>
-                  <Text style={[styles.contactValue, { color: theme.colors.text }]}>contact@alifcattle.com</Text>
+                  <Text style={[styles.contactValue, { color: theme.colors.text }]}>admin@aliffarms.com</Text>
                   <Text style={[styles.contactHint, { color: theme.colors.textSecondary }]}>Tap to send email</Text>
                 </View>
               </TouchableOpacity>
@@ -81,7 +96,7 @@ const ContactScreen = () => {
                 </View>
                 <View style={styles.contactInfo}>
                   <Text style={[styles.contactLabel, { color: theme.colors.textSecondary }]}>Location</Text>
-                  <Text style={[styles.contactValue, { color: theme.colors.text }]}>123 Farm Road, Rural County</Text>
+                  <Text style={[styles.contactValue, { color: theme.colors.text }]}>{locationAddress}</Text>
                   <Text style={[styles.contactHint, { color: theme.colors.textSecondary }]}>Tap to view map</Text>
                 </View>
               </TouchableOpacity>
@@ -96,28 +111,10 @@ const ContactScreen = () => {
                 </View>
                 <View style={styles.contactInfo}>
                   <Text style={[styles.contactLabel, { color: theme.colors.textSecondary }]}>Website</Text>
-                  <Text style={[styles.contactValue, { color: theme.colors.text }]}>www.alifcattle.com</Text>
+                  <Text style={[styles.contactValue, { color: theme.colors.text }]}>www.aliffarms.com</Text>
                   <Text style={[styles.contactHint, { color: theme.colors.textSecondary }]}>Tap to visit</Text>
                 </View>
               </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={[styles.card, { backgroundColor: theme.colors.cardBackground }]}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Business Hours</Text>
-            <View style={styles.businessHours}>
-              <View style={styles.dayRow}>
-                <Text style={[styles.day, { color: theme.colors.textSecondary }]}>Monday - Friday</Text>
-                <Text style={[styles.hours, { color: theme.colors.text }]}>9:00 AM - 6:00 PM</Text>
-              </View>
-              <View style={styles.dayRow}>
-                <Text style={[styles.day, { color: theme.colors.textSecondary }]}>Saturday</Text>
-                <Text style={[styles.hours, { color: theme.colors.text }]}>10:00 AM - 4:00 PM</Text>
-              </View>
-              <View style={styles.dayRow}>
-                <Text style={[styles.day, { color: theme.colors.textSecondary }]}>Sunday</Text>
-                <Text style={[styles.hours, { color: theme.colors.text }]}>Closed</Text>
-              </View>
             </View>
           </View>
         </View>
@@ -188,26 +185,6 @@ const styles = StyleSheet.create({
     height: 1,
     marginVertical: 16,
     opacity: 0.1,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  businessHours: {
-    gap: 12,
-  },
-  dayRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  day: {
-    fontSize: 14,
-  },
-  hours: {
-    fontSize: 14,
-    fontWeight: '500',
   },
 });
 

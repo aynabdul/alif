@@ -85,7 +85,7 @@ const QurbaniScreen = () => {
       <FlatList
         data={qurbanis}
         ListHeaderComponent={<GuideCard />}
-        renderItem={({ item }) => (
+        renderItem={({ item }: { item: Qurbani }) => (
           <QurbaniCard qurbani={item} />
         )}
         keyExtractor={(item) => item.id.toString()}

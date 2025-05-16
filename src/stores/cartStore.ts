@@ -12,6 +12,7 @@ export type CartItem = {
   categoryId?: string;
   currency?: string;
   type?: 'product' | 'qurbani';
+  day?: string; // For Qurbani orders, selected day
 };
 
 interface CartState {

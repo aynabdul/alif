@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
+  Alert,
 } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { AppStackParamList, AppStackNavigationProp } from '../types/navigation.types';
@@ -16,7 +17,6 @@ import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useCartStore } from '../stores/cartStore';
 import { useWishlistStore } from '../stores/wishlistStore';
-import Button from '../components/common/Button';
 import { productService } from '../services/api.service';
 import { Product } from '../types/api.types';
 import WebView from 'react-native-webview';
@@ -24,8 +24,6 @@ import { API_BASE_URL } from '../config/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type ProductDetailsRouteProp = RouteProp<AppStackParamList, 'ProductDetails'>;
-
-const TAB_BAR_HEIGHT = 60; 
 
 const ProductDetailsScreen = () => {
   const { theme, country } = useTheme();
@@ -42,6 +40,8 @@ const ProductDetailsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [webViewHeight, setWebViewHeight] = useState(300);
+  const webViewRef = useRef<WebView>(null);
 
   const windowWidth = Dimensions.get('window').width;
   const isInCart = cartItems.some((item) => item.id === productId);
@@ -96,9 +96,10 @@ const ProductDetailsScreen = () => {
         categoryId: product.categoryId,
         currency,
       });
-      navigation.navigate('Cart');
+      Alert.alert('Added to Cart', `${product.productName} has been added to your cart.`);
     } catch (error) {
       console.error('Error adding to cart:', error);
+      Alert.alert('Error', 'Failed to add item to cart. Please try again.');
     } finally {
       setAddingToCart(false);
     }
@@ -117,18 +118,128 @@ const ProductDetailsScreen = () => {
     if (!product) return;
     if (inWishlist) {
       removeFromWishlist(product.id);
+      Alert.alert('Removed', 'Item removed from your wishlist');
     } else {
       addToWishlist(product);
+      Alert.alert('Added to Wishlist', 'Item added to your wishlist');
     }
+  };
+
+  const renderDescription = () => {
+    if (!product) return null;
+    
+    const htmlContent = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+          <style>
+            body {
+              font-family: -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              color: ${theme.colors.textSecondary};
+              font-size: 14px;
+              line-height: 1.5;
+              margin: 0;
+              padding: 0;
+            }
+            h1, h2, h3, h4, h5, h6 {
+              color: ${theme.colors.text};
+              margin-top: 16px;
+              margin-bottom: 8px;
+            }
+            h3 {
+              font-size: 18px;
+            }
+            h4 {
+              font-size: 16px;
+            }
+            p {
+              margin-top: 8px;
+              margin-bottom: 8px;
+            }
+            strong {
+              font-weight: bold;
+              color: ${theme.colors.text};
+            }
+            ul, ol {
+              padding-left: 20px;
+              margin-top: 8px;
+              margin-bottom: 8px;
+            }
+            li {
+              margin-bottom: 4px;
+            }
+            hr {
+              border: none;
+              height: 1px;
+              background-color: ${theme.colors.border};
+              margin: 16px 0;
+            }
+          </style>
+        </head>
+        <body>
+          ${product.productDescription || '<p>No description available.</p>'}
+          <script>
+            // More reliable height calculation
+            function updateHeight() {
+              const docHeight = Math.max(
+                document.body.scrollHeight, 
+                document.body.offsetHeight, 
+                document.documentElement.clientHeight,
+                document.documentElement.scrollHeight, 
+                document.documentElement.offsetHeight
+              );
+              window.ReactNativeWebView.postMessage(docHeight.toString());
+            }
+            
+            // Run height calculation after content is fully loaded
+            document.addEventListener('DOMContentLoaded', function() {
+              setTimeout(updateHeight, 300);
+            });
+            
+            // Backup in case DOMContentLoaded doesn't fire
+            window.onload = function() {
+              setTimeout(updateHeight, 500);
+            };
+            
+            // Update once more after a longer delay to catch any delayed rendering
+            setTimeout(updateHeight, 1000);
+          </script>
+        </body>
+      </html>
+    `;
+    
+    return (
+      <WebView
+        ref={webViewRef}
+        source={{ html: htmlContent }}
+        style={{ 
+          height: webViewHeight,
+          width: windowWidth - 32,
+          opacity: 0.99, // Fix for some Android WebView rendering issues
+          marginBottom: 0 // Remove bottom margin
+        }}
+        scrollEnabled={true} // Allow scrolling within the WebView for long content
+        originWhitelist={['*']}
+        showsVerticalScrollIndicator={true}
+        scalesPageToFit={false}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        onMessage={(event) => {
+          const height = parseInt(event.nativeEvent.data);
+          if (!isNaN(height) && height > 0) {
+            // Add a small buffer to ensure content isn't cut off
+            setWebViewHeight(height + 10);
+          }
+        }}
+        onError={(e) => console.error('WebView error:', e.nativeEvent)}
+      />
+    );
   };
 
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.brand} />
-          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading product details...</Text>
-        </View>
+        <ActivityIndicator size="large" color={theme.colors.brand} />
       </View>
     );
   }
@@ -152,6 +263,9 @@ const ProductDetailsScreen = () => {
       ? product.ProductImages.map((img) => ({ uri: `${API_BASE_URL.replace('/api', '')}${img.imageUrl}` }))
       : [require('../../assets/default-product.png')];
 
+  // Add a constant for bottom bar height
+  const BOTTOM_BAR_HEIGHT = 80 + (insets.bottom || 16);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {addingToCart && (
@@ -159,16 +273,16 @@ const ProductDetailsScreen = () => {
           <ActivityIndicator size="large" color={theme.colors.brand} />
         </View>
       )}
-      <View style={styles.header}>
+      <View style={styles.headerBar}>
         <TouchableOpacity
-          style={[styles.iconButton, { backgroundColor: theme.colors.cardBackground }]}
+          style={styles.headerIcon}
           onPress={() => navigation.goBack()}
         >
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <View style={styles.headerRight}>
           <TouchableOpacity
-            style={[styles.iconButton, { backgroundColor: theme.colors.cardBackground }]}
+            style={styles.headerIcon}
             onPress={handleWishlistToggle}
           >
             <Ionicons
@@ -178,7 +292,7 @@ const ProductDetailsScreen = () => {
             />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.iconButton, { backgroundColor: theme.colors.cardBackground }]}
+            style={styles.headerIcon}
             onPress={() => navigation.navigate('Cart')}
           >
             <Ionicons name="cart-outline" size={24} color={theme.colors.text} />
@@ -192,33 +306,36 @@ const ProductDetailsScreen = () => {
       </View>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom }}
+        contentContainerStyle={{ 
+          paddingBottom: BOTTOM_BAR_HEIGHT + 10 // Increased padding to ensure content isn't hidden
+        }}
       >
-        <View style={styles.imageContainer}>
-          <FlatList
-            data={images}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(_, index) => `image_${index}`}
-            onMomentumScrollEnd={(e) => {
-              const newIndex = Math.floor(e.nativeEvent.contentOffset.x / windowWidth);
-              setActiveImageIndex(newIndex);
-            }}
-            renderItem={({ item }) => (
-              <Image source={item} style={[styles.mainImage, { width: windowWidth }]} resizeMode="contain" />
-            )}
+        {/* Image carousel */}
+        <View style={styles.carouselContainer}>
+          <Image 
+            source={images[activeImageIndex]} 
+            style={styles.mainImage} 
+            resizeMode="contain" 
           />
           {images.length > 1 && (
-            <View style={styles.imageDots}>
-              {images.map((_, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.dot, { backgroundColor: activeImageIndex === index ? theme.colors.brand : theme.colors.border }]}
-                  onPress={() => setActiveImageIndex(index)}
-                />
-              ))}
-            </View>
+            <FlatList
+              data={images}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(_, index) => `thumb_${index}`}
+              renderItem={({ item, index }) => (
+                <TouchableOpacity onPress={() => setActiveImageIndex(index)}>
+                  <Image
+                    source={item}
+                    style={[
+                      styles.thumbnail, 
+                      index === activeImageIndex && { borderColor: theme.colors.primary }
+                    ]}
+                  />
+                </TouchableOpacity>
+              )}
+              style={styles.thumbnailList}
+            />
           )}
         </View>
         <View style={styles.contentContainer}>
@@ -247,38 +364,7 @@ const ProductDetailsScreen = () => {
           </View>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Description</Text>
           <View style={styles.descriptionContainer}>
-            <WebView
-              source={{
-                html: `
-                  <html>
-                    <head>
-                      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                      <style>
-                        body {
-                          font-family: -apple-system, system-ui;
-                          color: ${theme.colors.textSecondary};
-                          font-size: 14px;
-                          line-height: 1.5;
-                          margin: 0;
-                          padding: 0;
-                        }
-                        p {
-                          margin: 0;
-                          padding: 0;
-                        }
-                      </style>
-                    </head>
-                    <body>
-                      ${product.productDescription || '<p>No description available.</p>'}
-                    </body>
-                  </html>
-                `
-              }}
-              style={{ height: 200 }}
-              scrollEnabled={true}
-              originWhitelist={['*']}
-              showsVerticalScrollIndicator={false}
-            />
+            {renderDescription()}
           </View>
           {inStock && (
             <View style={styles.quantitySection}>
@@ -300,23 +386,37 @@ const ProductDetailsScreen = () => {
               </View>
             </View>
           )}
-          {inStock && (
-            <View style={styles.cartSection}>
-              <View style={styles.totalPriceContainer}>
-                <Text style={[styles.totalPriceLabel, { color: theme.colors.textSecondary }]}>Total Price</Text>
-                <Text style={[styles.totalPrice, { color: theme.colors.brand }]}>
-                  {currency} {((isDiscounted ? discountedPrice : originalPrice) * quantity).toFixed(2)}
-                </Text>
-              </View>
-              <Button
-                title={isInCart ? 'Go to Cart' : 'Add to Cart'}
-                onPress={handleAddToCart}
-                style={{ backgroundColor: theme.colors.brand }}
-              />
-            </View>
-          )}
         </View>
       </ScrollView>
+      {inStock && (
+        <View style={[
+          styles.bottomBar, 
+          { 
+            paddingBottom: insets.bottom || 16,
+            backgroundColor: theme.colors.background,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: -3 },
+            shadowOpacity: 0.1,
+            shadowRadius: 3,
+            elevation: 5
+          }
+        ]}>
+          <View style={styles.totalPriceContainer}>
+            <Text style={[styles.totalPriceLabel, { color: theme.colors.textSecondary }]}>Total Price</Text>
+            <Text style={[styles.totalPrice, { color: theme.colors.brand }]}>
+              {currency} {((isDiscounted ? discountedPrice : originalPrice) * quantity).toFixed(2)}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.addToCartButton, { backgroundColor: theme.colors.brand }]}
+            onPress={handleAddToCart}
+            disabled={addingToCart}
+          >
+            <Ionicons name="cart-outline" size={20} color="white" />
+            <Text style={styles.addToCartText}>{isInCart ? 'Go to Cart' : 'Add to Cart'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -325,14 +425,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    zIndex: 10,
   },
   errorContainer: {
     flex: 1,
@@ -357,30 +455,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  header: {
+  headerBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  iconButton: {
+  headerIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 10,
+    marginLeft: 2,
+    marginRight: 2,
   },
   badge: {
     position: 'absolute',
@@ -398,31 +491,34 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
-  imageContainer: {
-    marginBottom: 24,
+  carouselContainer: {
+    alignItems: 'center',
+    marginTop: 8,
   },
   mainImage: {
-    height: 250,
+    width: '90%',
+    height: 220,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
   },
-  imageDots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
+  thumbnailList: {
+    marginTop: 8,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
+  thumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   contentContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 30,
   },
   category: {
     fontSize: 14,
     marginBottom: 8,
+    marginTop: 16,
   },
   titleContainer: {
     flexDirection: 'row',
@@ -431,7 +527,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
     flex: 1,
     marginRight: 16,
@@ -465,7 +561,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   descriptionContainer: {
-    marginBottom: 24,
+    marginBottom: 10,
+  },
+  showMoreButton: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  showMoreText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   quantitySection: {
     marginBottom: 24,
@@ -488,11 +592,19 @@ const styles = StyleSheet.create({
     minWidth: 30,
     textAlign: 'center',
   },
-  cartSection: {
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: 'white',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
   totalPriceContainer: {
     flex: 1,
@@ -505,6 +617,21 @@ const styles = StyleSheet.create({
   totalPrice: {
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  addToCartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minWidth: 140,
+  },
+  addToCartText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,16 +9,20 @@ import {
   RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { productService } from '../services/api.service';
 import { Product } from '../types/api.types';
-import { CategoryProductsRouteProp } from '../types/navigation.types';
+import { RootStackNavigationProp, RootStackParamList } from '../types/navigation.types';
+import { RouteProp } from '@react-navigation/native';
 import ProductCard from '../components/common/ProductCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+type CategoryProductsScreenRouteProp = RouteProp<RootStackParamList, 'CategoryProducts'>;
+
 const CategoryProductsScreen = () => {
-  const route = useRoute<CategoryProductsRouteProp>();
+  const route = useRoute<CategoryProductsScreenRouteProp>();
+  const navigation = useNavigation<RootStackNavigationProp>();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { categoryId } = route.params;
@@ -59,6 +63,10 @@ const CategoryProductsScreen = () => {
     setRefreshing(false);
   };
 
+  const handleProductPress = useCallback((productId: string) => {
+    navigation.navigate('ProductDetails', { productId });
+  }, [navigation]);
+
   return (
     <View 
       style={[
@@ -73,7 +81,10 @@ const CategoryProductsScreen = () => {
       <FlatList
         data={products}
         renderItem={({ item }) => (
-          <ProductCard product={item} />
+          <ProductCard 
+            product={item} 
+            onPress={() => handleProductPress(item.id.toString())}
+          />
         )}
         keyExtractor={(item) => item.id.toString()}
         numColumns={2}

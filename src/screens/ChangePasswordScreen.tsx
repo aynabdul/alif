@@ -9,35 +9,34 @@ import {
   Image,
   ScrollView,
   StatusBar,
-  Modal,
   Animated,
   Easing,
   Keyboard,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { AuthStackNavigationProp } from '../types/navigation.types';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { AuthStackNavigationProp, AuthStackParamList } from '../types/navigation.types';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuthStore } from '../stores/authStore';
 import Button from '../components/common/Button';
 import KeyboardAwareInput from '../components/common/KeyboardAwareInput';
 import { Ionicons } from '@expo/vector-icons';
 
-const ForgotPasswordScreen = () => {
+const ChangePasswordScreen = () => {
   const navigation = useNavigation<AuthStackNavigationProp>();
+  const route = useRoute<RouteProp<AuthStackParamList, 'ChangePassword'>>();
   const { theme } = useTheme();
-  const { forgetPassword, verifyOtpCode, isLoading, error, clearError } = useAuthStore();
+  const { changePassword, isLoading, error, clearError } = useAuthStore();
 
-  const [email, setEmail] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpError, setOtpError] = useState('');
-  const [modalVisible, setModalVisible] = useState(false);
+  const { email } = route.params; // Email passed from ForgotPasswordScreen
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   // Animation refs
   const logoAnim = useRef(new Animated.Value(1)).current;
   const errorFadeAnim = useRef(new Animated.Value(0)).current;
-  const modalSlideAnim = useRef(new Animated.Value(300)).current;
   const errorTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -102,88 +101,45 @@ const ForgotPasswordScreen = () => {
     };
   }, [error, clearError]);
 
-  const validateEmail = (value: string): boolean => {
+  const validatePassword = (value: string): boolean => {
     if (!value.trim()) {
-      setEmailError('Email is required');
+      setPasswordError('Password is required');
       return false;
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) {
-      setEmailError('Invalid email format');
+    if (value.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
       return false;
     }
-    setEmailError('');
+    setPasswordError('');
     return true;
   };
 
-  const validateOtp = (value: string): boolean => {
+  const validateConfirmPassword = (value: string): boolean => {
     if (!value.trim()) {
-      setOtpError('OTP is required');
+      setConfirmPasswordError('Please confirm your password');
       return false;
     }
-    const otpRegex = /^\d{6}$/;
-    if (!otpRegex.test(value)) {
-      setOtpError('OTP must be a 6-digit number');
+    if (value !== password) {
+      setConfirmPasswordError('Passwords do not match');
       return false;
     }
-    setOtpError('');
+    setConfirmPasswordError('');
     return true;
   };
 
-  const handleResetPassword = async () => {
+  const handleChangePassword = async () => {
     clearError();
-    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
+    const isConfirmPasswordValid = validateConfirmPassword(confirmPassword);
 
-    if (isEmailValid) {
+    if (isPasswordValid && isConfirmPasswordValid) {
       try {
-        await forgetPassword(email);
-        setModalVisible(true); // Show OTP modal
-        Animated.timing(modalSlideAnim, {
-          toValue: 0,
-          duration: 300,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }).start();
+        await changePassword(email, password);
+        navigation.navigate('Login');
       } catch (error) {
         // Error is handled by useAuthStore and displayed via error state
       }
     }
-  };
-
-  const handleVerifyOtp = async () => {
-    clearError();
-    const isOtpValid = validateOtp(otp);
-
-    if (isOtpValid) {
-      try {
-        await verifyOtpCode(email, otp);
-        Animated.timing(modalSlideAnim, {
-          toValue: 300,
-          duration: 300,
-          easing: Easing.in(Easing.ease),
-          useNativeDriver: true,
-        }).start(() => {
-          setModalVisible(false);
-          setOtp('');
-          navigation.navigate('ChangePassword', { email });
-        });
-      } catch (error) {
-        // Error is handled by useAuthStore and displayed via error state
-      }
-    }
-  };
-
-  const handleCloseModal = () => {
-    Animated.timing(modalSlideAnim, {
-      toValue: 300,
-      duration: 300,
-      easing: Easing.in(Easing.ease),
-      useNativeDriver: true,
-    }).start(() => {
-      setModalVisible(false);
-      setOtp('');
-      clearError();
-    });
   };
 
   const handleBackToLogin = () => {
@@ -226,26 +182,39 @@ const ForgotPasswordScreen = () => {
             <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
-            Forgot Password
+            Change Password
           </Text>
         </View>
 
         <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-          Enter your email address to receive a verification code
+          Enter and confirm your new password
         </Text>
 
         <View style={styles.formContainer}>
           <KeyboardAwareInput
-            label="Email Address"
-            value={email}
+            label="New Password"
+            value={password}
             onChangeText={(text) => {
-              setEmail(text);
-              validateEmail(text);
+              setPassword(text);
+              validatePassword(text);
               clearError();
             }}
-            placeholder="Enter your email"
-            keyboardType="email-address"
-            error={emailError}
+            placeholder="Enter new password"
+            secureTextEntry
+            error={passwordError}
+            required
+          />
+          <KeyboardAwareInput
+            label="Confirm Password"
+            value={confirmPassword}
+            onChangeText={(text) => {
+              setConfirmPassword(text);
+              validateConfirmPassword(text);
+              clearError();
+            }}
+            placeholder="Confirm new password"
+            secureTextEntry
+            error={confirmPasswordError}
             required
           />
 
@@ -258,10 +227,10 @@ const ForgotPasswordScreen = () => {
           )}
 
           <Button
-            title="SEND VERIFICATION CODE"
-            onPress={handleResetPassword}
+            title="SAVE NEW PASSWORD"
+            onPress={handleChangePassword}
             loading={isLoading}
-            disabled={isLoading || !!emailError}
+            disabled={isLoading || !!passwordError || !!confirmPasswordError}
             style={{ backgroundColor: theme.colors.brand, marginTop: 24 }}
           />
 
@@ -275,70 +244,6 @@ const ForgotPasswordScreen = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* OTP Modal */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="none"
-        onRequestClose={handleCloseModal}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={handleCloseModal}
-        >
-          <Animated.View
-            style={[
-              styles.modalContent,
-              {
-                transform: [{ translateY: modalSlideAnim }],
-                backgroundColor: theme.colors.background,
-              },
-            ]}
-          >
-            <View style={styles.modalHandle} />
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-              Enter Verification Code
-            </Text>
-            <Text style={[styles.modalSubtitle, { color: theme.colors.textSecondary }]}>
-              A 6-digit code was sent to {email}
-            </Text>
-            <KeyboardAwareInput
-              label="Verification Code"
-              value={otp}
-              onChangeText={(text) => {
-                setOtp(text);
-                validateOtp(text);
-                clearError();
-              }}
-              placeholder="Enter 6-digit code"
-              keyboardType="phone-pad"
-              error={otpError}
-              required
-            />
-            {error && (
-              <Animated.View style={[styles.errorContainer, { opacity: errorFadeAnim }]}>
-                <Text style={[styles.errorText, { color: theme.colors.error }]}>
-                  {error}
-                </Text>
-              </Animated.View>
-            )}
-            <Button
-              title="VERIFY CODE"
-              onPress={handleVerifyOtp}
-              loading={isLoading}
-              disabled={isLoading || !!otpError}
-              style={{ backgroundColor: theme.colors.brand, marginTop: 16 }}
-            />
-            <TouchableOpacity style={styles.modalCloseButton} onPress={handleCloseModal}>
-              <Text style={[styles.modalCloseText, { color: theme.colors.brand }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </TouchableOpacity>
-      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -414,44 +319,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    minHeight: 300,
-  },
-  modalHandle: {
-    width: 40,
-    height: 5,
-    backgroundColor: '#ccc',
-    borderRadius: 2.5,
-    alignSelf: 'center',
-    marginBottom: 10,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  modalCloseButton: {
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  modalCloseText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
 });
 
-export default ForgotPasswordScreen;
+export default ChangePasswordScreen;

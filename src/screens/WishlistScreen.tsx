@@ -1,12 +1,11 @@
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
-  Image, 
-  SafeAreaView
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
@@ -31,33 +30,25 @@ const WishlistScreen = () => {
 
   const renderEmptyWishlist = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons 
-        name="heart-outline" 
-        size={80} 
-        color={theme.colors.grays[300]} 
-      />
+      <Ionicons name="heart-outline" size={80} color={theme.colors.grays[300]} />
       <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
         Your wishlist is empty
       </Text>
       <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
         Save your favorite products here
       </Text>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.browseButton, { backgroundColor: theme.colors.brand }]}
         onPress={() => navigation.navigate('Home' as never)}
       >
-        <Text style={styles.browseButtonText}>
-          Browse Products
-        </Text>
+        <Text style={styles.browseButtonText}>Browse Products</Text>
       </TouchableOpacity>
     </View>
   );
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <Text style={[styles.title, { color: theme.colors.text }]}>
-        My Wishlist
-      </Text>
+      <Text style={[styles.title, { color: theme.colors.text }]}>My Wishlist</Text>
       {items.length > 0 && (
         <TouchableOpacity onPress={handleClearWishlist}>
           <Text style={[styles.clearButton, { color: theme.colors.error }]}>
@@ -71,16 +62,14 @@ const WishlistScreen = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar style={theme.statusBarStyle} />
-      
       {renderHeader()}
-      
       {items.length === 0 ? (
         renderEmptyWishlist()
       ) : (
         <FlatList
           data={items}
           keyExtractor={(item) => item.id.toString()}
-          numColumns={2}
+          key={'single-column'} // Prevent "changing numColumns" warning
           contentContainerStyle={styles.productsList}
           renderItem={({ item }) => (
             <View style={styles.productCardContainer}>
@@ -99,7 +88,7 @@ const WishlistScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   header: {
     flexDirection: 'row',
@@ -117,10 +106,11 @@ const styles = StyleSheet.create({
   },
   productsList: {
     paddingVertical: 16,
+    paddingBottom: 40,
   },
   productCardContainer: {
-    width: '50%',
-    paddingHorizontal: 4,
+    width: '100%',
+    marginBottom: 16,
   },
   emptyContainer: {
     flex: 1,
@@ -151,4 +141,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default WishlistScreen; 
+export default WishlistScreen;
