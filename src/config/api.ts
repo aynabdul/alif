@@ -1,27 +1,9 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import { Platform } from 'react-native';
 import { handleUnauthorized } from '../utils/authUtils';
 
-const isDevelopment = __DEV__;
-
-const API_SERVER_IP = '192.168.10.6';
-const API_SERVER_PORT = '5000';
-
-const getDevBaseUrl = () => {
-  return `http://${API_SERVER_IP}:${API_SERVER_PORT}`;
-};
-
-export const API_CONFIG = {
-  serverIp: API_SERVER_IP,
-  serverPort: API_SERVER_PORT,
-  fullUrl: getDevBaseUrl(),
-};
-
-export const API_BASE_URL = isDevelopment
-  ? getDevBaseUrl()
-  : 'https://your-production-api.com/';
+export const API_BASE_URL = 'https://aliffarms.com/alifadmin/api';
 
 console.log('Using API URL:', API_BASE_URL);
 
@@ -30,17 +12,16 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // Increased timeout
+  timeout: 30000,
 });
 
 api.interceptors.request.use(
   async (config) => {
     const netInfo = await NetInfo.fetch();
-    console.log('NetInfo:', netInfo);
+    console.log('NetInfo:', JSON.stringify(netInfo, null, 2));
     if (!netInfo.isConnected) {
       return Promise.reject(new Error('No internet connection'));
     }
-
     const token = await AsyncStorage.getItem('userToken');
     if (token) {
       config.headers = config.headers || {};
@@ -49,13 +30,14 @@ api.interceptors.request.use(
     } else {
       console.log('No auth token available for request');
     }
-
     const fullUrl = `${config.baseURL || ''}${config.url || ''}`;
     console.log(`API Request: ${config.method?.toUpperCase() || 'UNKNOWN'} ${fullUrl}`);
-
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    console.error('Request Interceptor Error:', error.message);
+    return Promise.reject(error);
+  }
 );
 
 api.interceptors.response.use(
@@ -68,13 +50,12 @@ api.interceptors.response.use(
       url: error.config?.url,
       status: error.response?.status,
       message: error.message,
+      details: error.response?.data || error.message,
     });
-
     if (error.response && error.response.status === 401) {
       console.log('Authentication failed (401) - Handling unauthorized');
       await handleUnauthorized();
     }
-
     return Promise.reject(error);
   }
 );
@@ -107,7 +88,8 @@ export const ENDPOINTS = {
   CREATE_ORDER: '/create-order',
   UPDATE_ORDER: (id: number) => `/update-order/${id}`,
   DASHBOARD: '/dashboard',
-  COUPONS: '/coupons',
+  COUPONS: 'coupons/coupons',
+  COUPON: (id: number | string) => `coupons/coupon/${id}`,
   VERIFY_COUPON: '/verify-coupon',
   CREATE_COUPON: '/create-coupon',
   UPDATE_COUPON: (id: number) => `/update-coupon/${id}`,
@@ -122,6 +104,14 @@ export const ENDPOINTS = {
   CUSTOMER_PROFILE: (customerId: string) => `/userdashboard/customerbyId/${customerId}`,
   UPDATE_CUSTOMER: (customerId: string) => `/userdashboard/modifyphoneaddress/${customerId}`,
   CHANGE_PASSWORD: '/userdashboard/change-password',
+  SLAUGHTS: '/slaughts/getallslaughts',
+  SLAUGHTTIME: '/slaughtTime/getalltimeslaughts',
+  // Order Payment Endpoints
+  CHECKOUT_USER: '/orders/checkoutuser',
+  CREATE_ORDER_IN_DB: '/orders/create-order',
+  CREATE_PAYMENT_SESSION: '/orders/pay',
+  CASH_ON_DELIVERY: '/orders/COD-order/send',
+  STRIPE_CHECKOUT: '/orders/pay-with-stripe',
 };
 
 export default api;

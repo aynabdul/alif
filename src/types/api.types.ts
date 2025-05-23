@@ -9,7 +9,7 @@ export interface User {
 }
 
 export interface Customer {
-  id: number;
+  id: number | string;
   name: string;
   email: string;
   isUser: boolean;
@@ -84,12 +84,12 @@ export interface Category {
   categoryDescription: string;
 }
 
-export interface ApiResponse<T> {
-  status: number;
-  success: boolean;
-  message: string;
-  data?: T;
-}
+// export interface ApiResponse<T> {
+//   status: number;
+//   success: boolean;
+//   message: string;
+//   data?: T;
+// }
 
 // Qurbani related types
 export interface Qurbani {
@@ -150,8 +150,8 @@ export interface Order {
 }
 
 export interface OrderItem {
-  id: number | string;
-  orderId: number | string;
+  id?: string; // Made optional
+  orderId?: string; // Made optional  
   productId: number | string | null;
   quantity: number;
   price: number | string;
@@ -173,11 +173,13 @@ export interface OrderItem {
 
 // Coupon related types
 export interface Coupon {
-  id: number;
+  id: string;
   code: string;
   discount: number;
-  expiryDate: string;
-  isActive: boolean;
+  expiryDate?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Rights and Roles types
@@ -202,6 +204,10 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
+export interface StripeCheckoutResponse {
+  sessionId: string; // Client secret for PaymentIntent
+}
+
 export interface PaginatedResponse<T> {
   status: number;
   success: boolean;
@@ -221,3 +227,56 @@ export interface DashboardStats {
   recentOrders: Order[];
   topSellingProducts: Product[];
 } 
+
+export interface Slaughts {
+  id: string;
+  day1Pak: number;
+  day1USA: number;
+  day2Pak: number;
+  day2USA: number;
+  day3Pak: number;
+  day3USA: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SlaughtTime {
+  id: string;
+  eidDay: 'day1USA' | 'day2USA' | 'day3USA';
+  hour: string;
+  totalQuota: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SlaughtsResponse {
+  success: boolean;
+  data: Slaughts;
+}
+
+export interface SlaughtTimeResponse {
+  success: boolean;
+  data: SlaughtTime[];
+}
+
+export interface CheckoutUserResponse<T> {
+  success: boolean;
+  message?: string;
+  customer?: T;
+}
+
+export interface OrderPayload {
+  customerEmail: string;
+  customerId: string;
+  items: OrderItem[];
+  country: 'PK' | 'USA';
+  discount: number;
+}
+
+export interface PaymentSessionResponse {
+  sessionId: string;
+  checkoutMode?: string;
+  merchant?: string;
+  result?: string;
+  successIndicator?: string;
+}

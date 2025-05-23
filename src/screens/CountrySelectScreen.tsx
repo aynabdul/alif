@@ -17,6 +17,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { resetRoot } from '../navigation/navigationUtils';
+import { useCartStore } from '../stores/cartStore';
+import { useWishlistStore } from '../stores/wishlistStore';
+import { useAuthStore } from '../stores/authStore';
 
 type CountrySelectScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'CountrySelect'>;
 
@@ -38,19 +41,32 @@ const CountrySelectScreen = () => {
   const route = useRoute<RouteProp<AuthStackParamList, 'CountrySelect'>>();
   const { theme, setCountry } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
+  const clearCart = useCartStore(state => state.clearCart);
+  const clearWishlist = useWishlistStore(state => state.clearWishlist);
+  const signOut = useAuthStore(state => state.signOut);
   
   const handleCountrySelect = async (country: Country) => {
     setIsLoading(true);
     
     try {
-      await setCountry(country.code); // Sets country for pricing logic in ProductCard and QurbaniCard
+      // Clear cart and wishlist
+      clearCart();
+      clearWishlist();
+      
+      // Sign out the user
+      await signOut();
+      
+      // Set new country
+      await setCountry(country.code);
+      
+      // Navigate as before
       if (route.params?.onSelect) {
         navigation.goBack();
       } else {
         resetRoot('Main');
       }
     } catch (error) {
-      console.error('Failed to set country:', error);
+      console.error('Failed to change country:', error);
     } finally {
       setIsLoading(false);
     }

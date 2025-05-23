@@ -13,6 +13,7 @@ export type CartItem = {
   currency?: string;
   type?: 'product' | 'qurbani';
   day?: string; // For Qurbani orders, selected day
+  hour?: string; // For Qurbani orders, selected hour
 };
 
 interface CartState {

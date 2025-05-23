@@ -1,3 +1,4 @@
+// src/stores/authStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -78,6 +79,8 @@ export const useAuthStore = create<AuthState>()(
               token: response.token || null,
               isAuthenticated: true,
               isLoading: false,
+              resetPasswordEmail: null, // Clear reset state on login
+              resetCodeVerified: false,
             });
           } else {
             throw new Error(response.message || 'Login failed');
@@ -118,6 +121,7 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
               resetPasswordEmail: email,
               resetCodeVerified: false,
+              isAuthenticated: false, // Ensure user is not authenticated
             });
           } else {
             throw new Error(response.message || 'Failed to send reset code');
@@ -134,7 +138,13 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await authService.verifyOtpCode(email, code);
           if (response.status === 200) {
-            set({ isLoading: false, resetCodeVerified: true });
+            set({
+              isLoading: false,
+              resetCodeVerified: true,
+              isAuthenticated: false,
+              token: null, // Clear any existing token
+              user: null, // Clear any existing user data
+            });
           } else {
             throw new Error(response.message || 'OTP verification failed');
           }
@@ -154,6 +164,7 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
               resetPasswordEmail: null,
               resetCodeVerified: false,
+              isAuthenticated: false, // Ensure user is not authenticated
             });
           } else {
             throw new Error(response.message || 'Password change failed');

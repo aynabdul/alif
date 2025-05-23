@@ -137,7 +137,8 @@ const ForgotPasswordScreen = () => {
     if (isEmailValid) {
       try {
         await forgetPassword(email);
-        setModalVisible(true); // Show OTP modal
+        // Prevent any navigation and show the OTP modal
+        setModalVisible(true);
         Animated.timing(modalSlideAnim, {
           toValue: 0,
           duration: 300,
@@ -165,7 +166,8 @@ const ForgotPasswordScreen = () => {
         }).start(() => {
           setModalVisible(false);
           setOtp('');
-          navigation.navigate('ChangePassword', { email });
+          // Navigate to ChangePassword screen but stay in the Auth stack
+          navigation.replace('ChangePassword', { email });
         });
       } catch (error) {
         // Error is handled by useAuthStore and displayed via error state

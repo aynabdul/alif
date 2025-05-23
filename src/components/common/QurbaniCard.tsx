@@ -67,15 +67,7 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
   };
 
   const handleAddToCart = () => {
-    addItem({
-      id: qurbani.id,
-      name: name,
-      price: startPrice,
-      quantity: 1,
-      image: { uri: imageUrl },
-      type: 'qurbani',
-    });
-    Alert.alert('Success', `${name} has been added to your cart.`);
+    navigation.navigate('QurbaniDetails', { qurbaniId: qurbani.id });
   };
 
   const handleWishlistPress = () => {

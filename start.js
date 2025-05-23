@@ -3,7 +3,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 // Set environment variables
-process.env.REACT_NATIVE_PACKAGER_HOSTNAME = '192.168.10.6';
+process.env.REACT_NATIVE_PACKAGER_HOSTNAME = '192.168.0.108';
 process.env.EXPO_DEVTOOLS_LISTEN_ADDRESS = '0.0.0.0';
 
 console.log('Starting Expo with custom IP configuration:');

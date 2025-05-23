@@ -11,8 +11,17 @@ import {
   User,
   Order,
   Coupon,
+  Customer,
+  CheckoutUserResponse,
+  OrderPayload,
+  PaymentSessionResponse,
   DashboardStats,
-  PaginatedResponse
+  PaginatedResponse,
+  Slaughts,
+  SlaughtTime,
+  SlaughtsResponse,
+  SlaughtTimeResponse,
+  StripeCheckoutResponse
 } from '../types/api.types';
 
 // Define response type for password reset operations
@@ -422,6 +431,43 @@ export const qurbaniService = {
   },
 };
 
+// Slaughter Services
+export const slaughterService = {
+  getSlaughts: async (): Promise<ApiResponse<Slaughts>> => {
+    try {
+      console.log('Calling API: getSlaughts');
+      const response: AxiosResponse<SlaughtsResponse> = await api.get(ENDPOINTS.SLAUGHTS);
+      console.log('Slaughts Response:', response.data);
+      return {
+        success: response.data.success,
+        status: 200,
+        message: 'Slaughter days fetched successfully',
+        data: response.data.data
+      };
+    } catch (error) {
+      console.error('GetSlaughts Error:', error);
+      return handleApiError(error as AxiosError);
+    }
+  },
+
+  getSlaughtTimes: async (): Promise<ApiResponse<SlaughtTime[]>> => {
+    try {
+      console.log('Calling API: getSlaughtTimes');
+      const response: AxiosResponse<SlaughtTimeResponse> = await api.get(ENDPOINTS.SLAUGHTTIME);
+      console.log('SlaughtTimes Response:', response.data);
+      return {
+        success: response.data.success,
+        status: 200,
+        message: 'Slaughter time slots fetched successfully',
+        data: response.data.data
+      };
+    } catch (error) {
+      console.error('GetSlaughtTimes Error:', error);
+      return handleApiError(error as AxiosError);
+    }
+  },
+};
+
 // Order Services
 export const orderService = {
   getOrders: async (): Promise<ApiResponse<Order[]>> => {
@@ -509,35 +555,125 @@ export const orderService = {
   }
 };
 
-// Dashboard Services
-export const dashboardService = {
-  getDashboardStats: async (): Promise<ApiResponse<DashboardStats>> => {
-    try {
-      const response: AxiosResponse<ApiResponse<DashboardStats>> = await api.get(ENDPOINTS.DASHBOARD);
-      return response.data;
-    } catch (error) {
-      return handleApiError(error as AxiosError);
-    }
-  },
-};
-
 // Coupon Services
 export const couponService = {
   getCoupons: async (): Promise<ApiResponse<Coupon[]>> => {
     try {
+      console.log('Calling API: getCoupons');
       const response: AxiosResponse<ApiResponse<Coupon[]>> = await api.get(ENDPOINTS.COUPONS);
+      console.log('Coupons Response:', response.data);
       return response.data;
     } catch (error) {
+      console.error('GetCoupons Error:', error);
       return handleApiError(error as AxiosError);
     }
   },
   
-  verifyCoupon: async (code: string): Promise<ApiResponse<Coupon>> => {
+  getCouponById: async (id: number | string): Promise<ApiResponse<Coupon>> => {
     try {
-      const response: AxiosResponse<ApiResponse<Coupon>> = await api.post(ENDPOINTS.VERIFY_COUPON, { code });
+      console.log('Calling API: getCouponById', id);
+      const response: AxiosResponse<ApiResponse<Coupon>> = await api.get(ENDPOINTS.COUPON(id));
+      console.log('Coupon Response:', response.data);
       return response.data;
     } catch (error) {
+      console.error('GetCouponById Error:', error);
+      return handleApiError(error as AxiosError);
+    }
+  }
+};
+
+// Order Payment Services
+export const orderPaymentService = {
+  checkoutUser: async (customerData: any): Promise<CheckoutUserResponse<Customer>> => {
+    try {
+      console.log('Creating customer:', customerData);
+      const response: AxiosResponse<CheckoutUserResponse<Customer>> = await api.post(ENDPOINTS.CHECKOUT_USER, customerData);
+      console.log('Customer created:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Customer creation failed:', error);
       return handleApiError(error as AxiosError);
     }
   },
-}; 
+
+  createOrderInDB: async (orderData: any): Promise<ApiResponse<Order>> => {
+    try {
+      console.log('Creating order:', orderData);
+      const response: AxiosResponse<ApiResponse<Order>> = await api.post(ENDPOINTS.CREATE_ORDER_IN_DB, orderData);
+      console.log('Order created:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Order creation failed:', error);
+      return handleApiError(error as AxiosError);
+    }
+  },
+
+createPaymentSession: async (payload: OrderPayload): Promise<ApiResponse<PaymentSessionResponse>> => {
+    try {
+      console.log('Calling createPaymentSession:', ENDPOINTS.CREATE_PAYMENT_SESSION, JSON.stringify(payload, null, 2));
+      const response: AxiosResponse = await api.post(ENDPOINTS.CREATE_PAYMENT_SESSION, payload);
+      console.log('Raw createPaymentSession response:', JSON.stringify(response.data, null, 2));
+      
+      // Map raw response to PaymentSessionResponse
+      const rawData = response.data;
+      const mappedData: PaymentSessionResponse = {
+        sessionId: rawData.session?.id || '',
+        checkoutMode: rawData.checkoutMode,
+        merchant: rawData.merchant,
+        result: rawData.result,
+        successIndicator: rawData.successIndicator,
+      };
+
+      const apiResponse: ApiResponse<PaymentSessionResponse> = {
+        status: response.status,
+        success: true,
+        message: 'Payment session created successfully',
+        data: mappedData,
+      };
+
+      console.log('createPaymentSession response:', JSON.stringify(apiResponse, null, 2));
+      return apiResponse;
+    } catch (error) {
+      console.error('Payment session creation failed:', error);
+      return handleApiError(error as AxiosError);
+    }
+  },
+
+
+  handleStripeCheckout: async (payload: OrderPayload): Promise<ApiResponse<StripeCheckoutResponse>> => {
+    try {
+      console.log('Initiating Stripe checkout:', JSON.stringify(payload, null, 2));
+      const response: AxiosResponse = await api.post(ENDPOINTS.STRIPE_CHECKOUT, payload);
+      console.log('Raw Stripe checkout response:', JSON.stringify(response.data, null, 2));
+
+      const rawData = response.data;
+      const mappedData: StripeCheckoutResponse = {
+        sessionId: rawData.sessionId || '',
+      };
+
+      const apiResponse: ApiResponse<StripeCheckoutResponse> = {
+        status: response.status,
+        success: rawData.success || false,
+        message: rawData.success ? 'Stripe checkout initiated successfully' : 'Failed to initiate Stripe checkout',
+        data: mappedData,
+      };
+
+      console.log('Stripe checkout response:', JSON.stringify(apiResponse, null, 2));
+      return apiResponse;
+    } catch (error) {
+      console.error('Stripe checkout failed:', error);
+      return handleApiError(error as AxiosError);
+    }
+  },
+    createCashOnDelivery: async (payload: OrderPayload): Promise<ApiResponse<{ message: string }>> => {
+    try {
+      console.log('Calling createCashOnDelivery:', ENDPOINTS.CASH_ON_DELIVERY, JSON.stringify(payload, null, 2));
+      const response: AxiosResponse<ApiResponse<{ message: string }>> = await api.post(ENDPOINTS.CASH_ON_DELIVERY, payload);
+      console.log('createCashOnDelivery response:', JSON.stringify(response.data, null, 2));
+      return response.data;
+    } catch (error) {
+      console.error('COD order processing failed:', error);
+      return handleApiError(error as AxiosError);
+    }
+  },
+};
