@@ -14,6 +14,7 @@ import { useWishlistStore } from '../../stores/wishlistStore';
 import { useCartStore } from '../../stores/cartStore';
 import { Product } from '../../types/api.types';
 import { API_BASE_URL } from '../../config/api';
+import useGlobalStore from '../../stores/set-get-statets';
 
 export interface ProductCardProps {
   product: Product;
@@ -24,11 +25,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => {
   const { theme, country } = useTheme();
   const { addItem } = useCartStore();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlistStore();
+  const isFromQurbani = useGlobalStore((state) => state.isFromQurbani);
+  const setIsFromQurbani = useGlobalStore((state) => state.setIsFromQurbani);
+
+  console.log("product ->", JSON.stringify(product, null, 2));
+  console.log("isFromQurbani ->", isFromQurbani);
 
   const inWishlist = isInWishlist(product.id);
 
   const isPakistan = country === 'PAK';
-  const originalPrice = isPakistan ? product.OriginalPricePak : product.OriginalPriceUSA;
+  const originalPrice = isPakistan ? isFromQurbani ? product.priceforpak : product.OriginalPricePak : product.OriginalPriceUSA;
   const discountedPrice = isPakistan ? product.PriceAfterDiscountPak : product.PriceAfterDiscountUSA;
   const discountPercentage = isPakistan ? product.discountOfferinPak : product.discountOfferinUSA;
   const isDiscounted = isPakistan ? product.IsDiscountedProductInPak : product.IsDiscountedProductInUSA;
@@ -47,6 +53,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => {
   const handleWishlistPress = () => {
     if (inWishlist) {
       removeFromWishlist(product.id);
+      setIsFromQurbani(false);
       Alert.alert('Removed', `${product.productName} has been removed from your wishlist.`);
     } else {
       const minimalProductData = {
@@ -114,7 +121,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => {
               </Text>
             )}
             <Text style={[styles.price, { color: isDiscounted ? theme.colors.brand : theme.colors.text }]}>
-              {currency} {(isDiscounted ? discountedPrice : originalPrice).toFixed(2)}
+              {currency} {(isDiscounted ? discountedPrice : originalPrice)?.toFixed(2)}
             </Text>
           </View>
           {product.Category && (

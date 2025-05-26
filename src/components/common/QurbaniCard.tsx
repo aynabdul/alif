@@ -1,5 +1,5 @@
 // src/components/qurbani/QurbaniCard.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -17,6 +17,7 @@ import { useCartStore } from '../../stores/cartStore';
 import { useWishlistStore } from '../../stores/wishlistStore';
 import { IMAGE_PLACEHOLDERS } from '../../constants';
 import { API_BASE_URL } from '../../config/api';
+import useGlobalStore from '../../stores/set-get-statets';
 
 interface QurbaniCardProps {
   qurbani: Qurbani;
@@ -28,8 +29,13 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
   const { theme } = useTheme();
   const { addItem, country } = useCartStore();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlistStore();
+  const setIsFromQurbani = useGlobalStore((state) => state.setIsFromQurbani);
 
   const inWishlist = isInWishlist(qurbani.id);
+
+  useEffect(() => {
+    setIsFromQurbani(true);
+  }, [qurbani])
   
   // Get price based on country
   const startPrice = country === 'US' 
@@ -73,6 +79,7 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
   const handleWishlistPress = () => {
     if (inWishlist) {
       removeFromWishlist(qurbani.id);
+      setIsFromQurbani(false);
       Alert.alert('Removed', `${name} has been removed from your wishlist.`);
     } else {
       addToWishlist({
@@ -81,6 +88,7 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
         priceforus: qurbani.priceforus || qurbani.qurbaniPriceUSA,
         priceforpak: qurbani.priceforpak || qurbani.qurbaniPricePak,
       } as any);
+      setIsFromQurbani(true);
       Alert.alert('Added', `${name} has been added to your wishlist.`);
     }
   };

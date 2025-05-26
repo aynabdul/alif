@@ -70,6 +70,7 @@ export interface Product {
   Category?: Category;
   createdAt?: string;
   updatedAt?: string;
+  priceforpak: number;
 }
 
 export interface ProductImage {
