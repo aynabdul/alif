@@ -1,4 +1,3 @@
-// src/screens/QurbaniDetailsScreen.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -58,6 +57,7 @@ const QurbaniDetailsScreen = () => {
 
         // Fetch Qurbani details
         const qurbaniResponse = await qurbaniService.getQurbaniById(qurbaniId);
+        console.log('Qurbani response:', JSON.stringify(qurbaniResponse, null, 2));
         if (qurbaniResponse.success && qurbaniResponse.data) {
           setQurbani(qurbaniResponse.data);
         } else {
@@ -92,25 +92,45 @@ const QurbaniDetailsScreen = () => {
     fetchData();
   }, [qurbaniId, country]);
 
+  // Reset activeImageIndex when images change
+  useEffect(() => {
+    if (qurbani) {
+      const images = (qurbani.QurbaniImages || qurbani.qurbaniImages || []).filter(
+        (img): img is { id: string; imageUrl: string; qurbaniId:string } => !!img && typeof img.imageUrl === 'string'
+      );
+      if (activeImageIndex >= images.length) {
+        setActiveImageIndex(0);
+      }
+    }
+  }, [qurbani, activeImageIndex]);
+
   // Helper: get day slots from API response
   const daySlots = slaughts
     ? [
-        { label: 'Day 1', value: 'day1', slots: country === 'US' ? slaughts.day1USA : slaughts.day1Pak },
-        { label: 'Day 2', value: 'day2', slots: country === 'US' ? slaughts.day2USA : slaughts.day2Pak },
-        { label: 'Day 3', value: 'day3', slots: country === 'US' ? slaughts.day3USA : slaughts.day3Pak },
+        { label: 'Day 1', value: 'day1USA', slots: country === 'US' ? slaughts.day1USA : slaughts.day1Pak },
+        { label: 'Day 2', value: 'day2USA', slots: country === 'US' ? slaughts.day2USA : slaughts.day2Pak },
+        { label: 'Day 3', value: 'day3USA', slots: country === 'US' ? slaughts.day3USA : slaughts.day3Pak },
       ]
     : [];
 
   // Helper: get hours for selected day (US only)
   const hourSlots = selectedDay
-    ? slaughtTimes.filter((time) => time.eidDay === `${selectedDay}USA`)
+    ? slaughtTimes.filter((time) => time.eidDay === `${selectedDay}`)
     : [];
 
   // Helper: get images
-  const images = qurbani ? (qurbani.QurbaniImages || qurbani.qurbaniImages || []) : [];
-  const mainImageUrl = images[activeImageIndex]?.imageUrl
-    ? `${API_BASE_URL.replace('/api', '')}${images[activeImageIndex].imageUrl}`
+  const images = qurbani
+    ? (qurbani.QurbaniImages || qurbani.qurbaniImages || []).filter(
+        (img): img is { id: string; imageUrl: string; qurbaniId: string } => !!img && typeof img.imageUrl === 'string'
+      )
+    : [];
+  const mainImageUrl = images.length > 0 && images[activeImageIndex]?.imageUrl
+    ? images[activeImageIndex].imageUrl.startsWith('/')
+      ? `${API_BASE_URL}${images[activeImageIndex].imageUrl}`
+      : images[activeImageIndex].imageUrl
     : require('../../assets/default-product.png');
+  console.log('Images:', JSON.stringify(images, null, 2));
+  console.log('Main image URL:', mainImageUrl);
 
   // Helper: get SKU and price
   const isPakistan = country === 'PAK';
@@ -165,7 +185,7 @@ const QurbaniDetailsScreen = () => {
           name: qurbani.title || qurbani.qurbaniName || '',
           price: displayPrice || 0,
           quantity: 1,
-          image: { uri: mainImageUrl },
+          image: { uri: typeof mainImageUrl === 'string' ? mainImageUrl : undefined },
           type: 'qurbani',
           day: selectedDay,
           hour: country === 'US' ? (selectedHour ?? undefined) : undefined,
@@ -185,11 +205,9 @@ const QurbaniDetailsScreen = () => {
   const isAddToCartEnabled = country === 'US' ? !!selectedDay && !!selectedHour : !!selectedDay;
 
   // Render description WebView
- // Render description WebView - Improved to ensure full content is visible
   const renderDescription = () => {
     if (!description) return null;
     
-    // Create HTML content with improved script to calculate height
     const htmlContent = `
       <html>
         <head>
@@ -233,7 +251,7 @@ const QurbaniDetailsScreen = () => {
             hr {
               border: none;
               height: 1px;
-              background-color: ${theme.colors.border};
+              backgroundColor: ${theme.colors.border};
               margin: 16px 0;
             }
           </style>
@@ -241,7 +259,6 @@ const QurbaniDetailsScreen = () => {
         <body>
           ${description}
           <script>
-            // More reliable height calculation
             function updateHeight() {
               const docHeight = Math.max(
                 document.body.scrollHeight, 
@@ -251,19 +268,13 @@ const QurbaniDetailsScreen = () => {
                 document.documentElement.offsetHeight
               );
               window.ReactNativeWebView.postMessage(docHeight.toString());
-    }
-    
-            // Run height calculation after content is fully loaded
+            }
             document.addEventListener('DOMContentLoaded', function() {
               setTimeout(updateHeight, 300);
             });
-            
-            // Backup in case DOMContentLoaded doesn't fire
             window.onload = function() {
               setTimeout(updateHeight, 500);
             };
-            
-            // Update once more after a longer delay to catch any delayed rendering
             setTimeout(updateHeight, 1000);
           </script>
         </body>
@@ -277,10 +288,10 @@ const QurbaniDetailsScreen = () => {
         style={{ 
           height: webViewHeight,
           width: windowWidth - 32,
-          opacity: 0.99, // Fix for some Android WebView rendering issues
-          marginBottom: 0 // Remove bottom margin
+          opacity: 0.99,
+          marginBottom: 0
         }}
-        scrollEnabled={true} // Allow scrolling within the WebView for long content
+        scrollEnabled={true}
         originWhitelist={['*']}
         showsVerticalScrollIndicator={true}
         scalesPageToFit={false}
@@ -289,7 +300,6 @@ const QurbaniDetailsScreen = () => {
         onMessage={(event) => {
           const height = parseInt(event.nativeEvent.data);
           if (!isNaN(height) && height > 0) {
-            // Add a small buffer to ensure content isn't cut off
             setWebViewHeight(height + 10);
           }
         }}
@@ -297,7 +307,6 @@ const QurbaniDetailsScreen = () => {
       />
     );
   };
-
 
   if (loading) {
     return (
@@ -314,11 +323,9 @@ const QurbaniDetailsScreen = () => {
     );
   }
 
-  // Header bar
   const cartItems = useCartStore.getState().items;
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* <StatusBar style={theme.dark ? 'light' : 'dark'} /> */}
       {addingToCart && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -346,16 +353,24 @@ const QurbaniDetailsScreen = () => {
       <ScrollView contentContainerStyle={{ paddingBottom: BOTTOM_BAR_HEIGHT }}>
         {/* Image carousel */}
         <View style={styles.carouselContainer}>
-          <Image source={{ uri: mainImageUrl }} style={styles.mainImage} resizeMode="contain" />
+          <Image
+            source={typeof mainImageUrl === 'string' ? { uri: mainImageUrl } : mainImageUrl}
+            style={styles.mainImage}
+            resizeMode="contain"
+          />
           {images.length > 1 && (
             <FlatList
               data={images}
               horizontal
-              keyExtractor={(_, idx) => `thumb_${idx}`}
+              keyExtractor={(item) => item.id}
               renderItem={({ item, index }) => (
                 <TouchableOpacity onPress={() => setActiveImageIndex(index)}>
                   <Image
-                    source={{ uri: `${API_BASE_URL.replace('/api', '')}${item.imageUrl}` }}
+                    source={{
+                      uri: item.imageUrl.startsWith('/')
+                        ? `${API_BASE_URL}${item.imageUrl}`
+                        : item.imageUrl
+                    }}
                     style={[styles.thumbnail, { borderColor: activeImageIndex === index ? theme.colors.primary : 'transparent' }]}
                     resizeMode="contain"
                   />
@@ -400,7 +415,7 @@ const QurbaniDetailsScreen = () => {
                 onPress={() => {
                   if (day.slots > 0) {
                     setSelectedDay(day.value);
-                    setSelectedHour(null); // Reset hour when day changes
+                    setSelectedHour(null);
                   }
                 }}
                 disabled={day.slots <= 0}

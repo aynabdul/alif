@@ -118,7 +118,7 @@ export interface Qurbani {
 }
 
 export interface QurbaniImage {
-  id: number | string;
+  id: string;
   qurbaniId: number | string;
   imageUrl: string;
 }
@@ -271,6 +271,11 @@ export interface OrderPayload {
   items: OrderItem[];
   country: 'PK' | 'USA';
   discount: number;
+}
+
+export interface PaymentIntentResponse {
+  clientSecret: string;
+  orderId: string;
 }
 
 export interface PaymentSessionResponse {

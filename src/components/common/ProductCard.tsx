@@ -37,7 +37,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => {
   const imageUrl =
     product.ProductImages && product.ProductImages.length > 0
       ? {
-          uri: `${API_BASE_URL.replace('/api', '')}${product.ProductImages[0].imageUrl}`,
+          uri: `${API_BASE_URL}${product.ProductImages[0].imageUrl}`,
           width: 150,
           height: 140,
           cache: 'force-cache' as 'force-cache',

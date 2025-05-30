@@ -13,8 +13,9 @@ import {
   Animated,
   Easing,
   Keyboard,
+  Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { AuthStackNavigationProp } from '../types/navigation.types';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuthStore } from '../stores/authStore';
@@ -24,6 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 const ForgotPasswordScreen = () => {
   const navigation = useNavigation<AuthStackNavigationProp>();
+  const isFocused = useIsFocused();
   const { theme } = useTheme();
   const { forgetPassword, verifyOtpCode, isLoading, error, clearError } = useAuthStore();
 
@@ -33,8 +35,8 @@ const ForgotPasswordScreen = () => {
   const [otpError, setOtpError] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [requestLoading, setRequestLoading] = useState(false);
 
-  // Animation refs
   const logoAnim = useRef(new Animated.Value(1)).current;
   const errorFadeAnim = useRef(new Animated.Value(0)).current;
   const modalSlideAnim = useRef(new Animated.Value(300)).current;
@@ -69,7 +71,6 @@ const ForgotPasswordScreen = () => {
     };
   }, []);
 
-  // Handle error message display and auto-dismiss
   useEffect(() => {
     if (error) {
       Animated.timing(errorFadeAnim, {
@@ -135,18 +136,29 @@ const ForgotPasswordScreen = () => {
     const isEmailValid = validateEmail(email);
 
     if (isEmailValid) {
+      setRequestLoading(true);
       try {
-        await forgetPassword(email);
-        // Prevent any navigation and show the OTP modal
-        setModalVisible(true);
-        Animated.timing(modalSlideAnim, {
-          toValue: 0,
-          duration: 300,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }).start();
-      } catch (error) {
-        // Error is handled by useAuthStore and displayed via error state
+        console.log('ForgotPasswordScreen: Starting forgetPassword for email:', email, 'at:', new Date().toISOString());
+        const response = await forgetPassword(email);
+        console.log('ForgotPasswordScreen: forgetPassword response:', JSON.stringify(response, null, 2));
+        
+        setRequestLoading(false);
+        if (response?.success) {
+          console.log('ForgotPasswordScreen: Showing OTP modal');
+          setModalVisible(true);
+          Animated.timing(modalSlideAnim, {
+            toValue: 0,
+            duration: 300,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }).start();
+        } else {
+          Alert.alert('Error', response?.message || 'Failed to send OTP. Please try again.');
+        }
+      } catch (error: any) {
+        console.error('ForgotPasswordScreen: Error in handleResetPassword:', error);
+        setRequestLoading(false);
+        Alert.alert('Error', error.message || 'Failed to send OTP. Please try again.');
       }
     }
   };
@@ -166,11 +178,10 @@ const ForgotPasswordScreen = () => {
         }).start(() => {
           setModalVisible(false);
           setOtp('');
-          // Navigate to ChangePassword screen but stay in the Auth stack
-          navigation.replace('ChangePassword', { email });
+          navigation.navigate('ChangePassword', { email });
         });
       } catch (error) {
-        // Error is handled by useAuthStore and displayed via error state
+        // Error handled by useAuthStore
       }
     }
   };
@@ -262,8 +273,8 @@ const ForgotPasswordScreen = () => {
           <Button
             title="SEND VERIFICATION CODE"
             onPress={handleResetPassword}
-            loading={isLoading}
-            disabled={isLoading || !!emailError}
+            loading={isLoading || requestLoading}
+            disabled={isLoading || requestLoading || !!emailError}
             style={{ backgroundColor: theme.colors.brand, marginTop: 24 }}
           />
 
@@ -278,7 +289,6 @@ const ForgotPasswordScreen = () => {
         </View>
       </ScrollView>
 
-      {/* OTP Modal */}
       <Modal
         visible={modalVisible}
         transparent
@@ -321,28 +331,28 @@ const ForgotPasswordScreen = () => {
             />
             {error && (
               <Animated.View style={[styles.errorContainer, { opacity: errorFadeAnim }]}>
-                <Text style={[styles.errorText, { color: theme.colors.error }]}>
-                  {error}
-                </Text>
-              </Animated.View>
-            )}
-            <Button
-              title="VERIFY CODE"
-              onPress={handleVerifyOtp}
-              loading={isLoading}
-              disabled={isLoading || !!otpError}
-              style={{ backgroundColor: theme.colors.brand, marginTop: 16 }}
-            />
-            <TouchableOpacity style={styles.modalCloseButton} onPress={handleCloseModal}>
-              <Text style={[styles.modalCloseText, { color: theme.colors.brand }]}>
-                Cancel
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                {error}
               </Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </TouchableOpacity>
-      </Modal>
-    </KeyboardAvoidingView>
-  );
+            </Animated.View>
+          )}
+          <Button
+            title="VERIFY CODE"
+            onPress={handleVerifyOtp}
+            loading={isLoading}
+            disabled={isLoading || !!otpError}
+            style={{ backgroundColor: theme.colors.brand, marginTop: 16 }}
+          />
+          <TouchableOpacity style={styles.modalCloseButton} onPress={handleCloseModal}>
+            <Text style={[styles.modalCloseText, { color: theme.colors.brand }]}>
+              Cancel
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </TouchableOpacity>
+    </Modal>
+  </KeyboardAvoidingView>
+);
 };
 
 const styles = StyleSheet.create({

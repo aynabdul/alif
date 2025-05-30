@@ -112,6 +112,7 @@ export const ENDPOINTS = {
   CREATE_PAYMENT_SESSION: '/orders/pay',
   CASH_ON_DELIVERY: '/orders/COD-order/send',
   STRIPE_CHECKOUT: '/orders/pay-with-stripe',
+  CREATE_PAYMENT_INTENT: '/orders/create-payment-intent',
 };
 
 export default api;

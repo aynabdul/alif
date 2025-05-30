@@ -183,6 +183,12 @@ export const pakTheme: CustomTheme = {
       border: '#DEDEDE',
       notification: '#BD3E33',
     },
+    fonts: {
+      regular: { fontFamily: 'System', fontWeight: 'normal' },
+      medium: { fontFamily: 'System', fontWeight: '500' },
+      bold: { fontFamily: 'System', fontWeight: 'bold' },
+      heavy: { fontFamily: 'System', fontWeight: '900' },
+    }, // Provided required font configuration
   },
 };
 
@@ -280,6 +286,12 @@ export const usTheme: CustomTheme = {
       border: '#DEDEDE',
       notification: '#4CAF50',
     },
+    fonts: {
+      regular: { fontFamily: 'System', fontWeight: 'normal' },
+      medium: { fontFamily: 'System', fontWeight: '500' },
+      bold: { fontFamily: 'System', fontWeight: 'bold' },
+      heavy: { fontFamily: 'System', fontWeight: '900' },
+    }, // Provided required font configuration
   },
 };
 

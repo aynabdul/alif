@@ -57,9 +57,9 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
   }
   
   // If the image URL is relative, prepend the API base URL
+  console.log('Qurbani Image URL:', imageUrl);
   if (imageUrl && imageUrl.startsWith('/')) {
-    const baseUrlWithoutApi = API_BASE_URL.replace('/api', '');
-    imageUrl = `${baseUrlWithoutApi}${imageUrl}`;
+    imageUrl = `${API_BASE_URL}${imageUrl}`;
   }
   
   const handlePress = () => {

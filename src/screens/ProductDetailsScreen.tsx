@@ -24,7 +24,45 @@ import { API_BASE_URL } from '../config/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type ProductDetailsRouteProp = RouteProp<AppStackParamList, 'ProductDetails'>;
-
+const DimensionsTable = ({ 
+  height, 
+  width, 
+  weight, 
+  length,
+}: { 
+  height: number; 
+  width: number; 
+  weight: number; 
+  length: number;
+}) => {
+  const { theme } = useTheme();
+  return (
+    <View style={[styles.dimensionsContainer, { 
+      backgroundColor: theme.colors.cardBackground,
+      borderColor: theme.colors.border 
+    }]}>
+      <View style={styles.dimensionsRow}>
+        <Text style={[styles.dimensionsLabel, { color: theme.colors.textSecondary }]}>Height</Text>
+        <Text style={[styles.dimensionsValue, { color: theme.colors.text }]}>{height} cm</Text>
+      </View>
+      <View style={[styles.dimensionsDivider, { backgroundColor: theme.colors.border }]} />
+      <View style={styles.dimensionsRow}>
+        <Text style={[styles.dimensionsLabel, { color: theme.colors.textSecondary }]}>Width</Text>
+        <Text style={[styles.dimensionsValue, { color: theme.colors.text }]}>{width} cm</Text>
+      </View>
+      <View style={[styles.dimensionsDivider, { backgroundColor: theme.colors.border }]} />
+      <View style={styles.dimensionsRow}>
+        <Text style={[styles.dimensionsLabel, { color: theme.colors.textSecondary }]}>Weight</Text>
+        <Text style={[styles.dimensionsValue, { color: theme.colors.text }]}>{weight} kg</Text>
+      </View>
+      <View style={[styles.dimensionsDivider, { backgroundColor: theme.colors.border }]} />
+      <View style={styles.dimensionsRow}>
+        <Text style={[styles.dimensionsLabel, { color: theme.colors.textSecondary }]}>Length</Text>
+        <Text style={[styles.dimensionsValue, { color: theme.colors.text }]}>{length} cm</Text>
+      </View>
+    </View>
+  );
+};
 const ProductDetailsScreen = () => {
   const { theme, country } = useTheme();
   const navigation = useNavigation<AppStackNavigationProp>();
@@ -84,7 +122,7 @@ const ProductDetailsScreen = () => {
       const price = isDiscounted ? discountedPrice : originalPrice;
       const imageUrl =
         product.ProductImages && product.ProductImages.length > 0
-          ? `${API_BASE_URL.replace('/api', '')}${product.ProductImages[0].imageUrl}`
+          ? `${API_BASE_URL}${product.ProductImages[0].imageUrl}`
           : null;
 
       addItem({
@@ -260,7 +298,7 @@ const ProductDetailsScreen = () => {
 
   const images =
     product.ProductImages && product.ProductImages.length > 0
-      ? product.ProductImages.map((img) => ({ uri: `${API_BASE_URL.replace('/api', '')}${img.imageUrl}` }))
+      ? product.ProductImages.map((img) => ({ uri: `${API_BASE_URL}${img.imageUrl}` }))
       : [require('../../assets/default-product.png')];
 
   // Add a constant for bottom bar height
@@ -362,6 +400,13 @@ const ProductDetailsScreen = () => {
               <Text style={[styles.outOfStock, { color: theme.colors.error }]}>Out of Stock</Text>
             )}
           </View>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Dimensions</Text>
+          <DimensionsTable 
+            height={product.productheight} 
+            width={product.productwidth} 
+            weight={product.productweight} 
+            length={product.productlength}
+          />
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Description</Text>
           <View style={styles.descriptionContainer}>
             {renderDescription()}
@@ -632,6 +677,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+    dimensionsContainer: {
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  dimensionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  dimensionsLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  dimensionsValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  dimensionsDivider: {
+    height: 1,
+    width: '100%',
   },
 });
 

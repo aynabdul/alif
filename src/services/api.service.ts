@@ -15,6 +15,7 @@ import {
   CheckoutUserResponse,
   OrderPayload,
   PaymentSessionResponse,
+  PaymentIntentResponse,
   DashboardStats,
   PaginatedResponse,
   Slaughts,
@@ -124,14 +125,34 @@ export const authService = {
     }
   },
   
-  forgetPassword: async (email: string): Promise<ApiResponse<PasswordResetResponse>> => {
-    try {
-      const response: AxiosResponse<ApiResponse<PasswordResetResponse>> = await api.post(ENDPOINTS.SEND_RESET_CODE, { email });
-      return response.data;
-    } catch (error) {
-      return handleApiError(error as AxiosError);
+forgetPassword: async (email: string): Promise<ApiResponse<PasswordResetResponse>> => {
+  try {
+    const response: AxiosResponse<{ message: string }> = await api.post(ENDPOINTS.SEND_RESET_CODE, { email });
+    
+    // Map backend response to ApiResponse<PasswordResetResponse>
+    return {
+      status: response.status,
+      success: response.data.message === 'Reset code sent to email',
+      message: response.data.message,
+      data: { message: response.data.message },
+    };
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    
+    // Handle 404 specifically
+    if (axiosError.response?.status === 404 && axiosError.response?.data?.message === 'Customer not found') {
+      return {
+        status: 404,
+        success: false,
+        message: 'Customer not found',
+        data: { message: 'Customer not found' },
+      };
     }
-  },
+
+    // Handle other unexpected errors
+    return handleApiError(axiosError);
+  }
+},
   
   verifyOtpCode: async (email: string, code: string): Promise<ApiResponse<PasswordResetResponse>> => {
     try {
@@ -665,6 +686,32 @@ createPaymentSession: async (payload: OrderPayload): Promise<ApiResponse<Payment
       return handleApiError(error as AxiosError);
     }
   },
+createPaymentIntent: async (payload: OrderPayload): Promise<ApiResponse<PaymentIntentResponse>> => {
+  try {
+    console.log('Initiating Payment Intent:', JSON.stringify(payload, null, 2));
+    const response: AxiosResponse = await api.post(ENDPOINTS.CREATE_PAYMENT_INTENT, payload);
+    console.log('Raw Payment Intent response:', JSON.stringify(response.data, null, 2));
+
+    const rawData = response.data;
+    const mappedData: PaymentIntentResponse = {
+      clientSecret: rawData.clientSecret || '', // Access directly from rawData
+      orderId: rawData.orderId || '', // Access directly from rawData
+    };
+
+    const apiResponse: ApiResponse<PaymentIntentResponse> = {
+      status: response.status,
+      success: rawData.success || false,
+      message: rawData.success ? 'Payment Intent created successfully' : 'Failed to create Payment Intent',
+      data: mappedData,
+    };
+
+    console.log('Payment Intent response:', JSON.stringify(apiResponse, null, 2));
+    return apiResponse;
+  } catch (error) {
+    console.error('Payment Intent creation failed:', error);
+    return handleApiError(error as AxiosError);
+  }
+},
     createCashOnDelivery: async (payload: OrderPayload): Promise<ApiResponse<{ message: string }>> => {
     try {
       console.log('Calling createCashOnDelivery:', ENDPOINTS.CASH_ON_DELIVERY, JSON.stringify(payload, null, 2));

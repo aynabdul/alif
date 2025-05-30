@@ -25,7 +25,7 @@ import Button from '../components/common/Button';
 import { RootStackNavigationProp } from '../types/navigation.types';
 import { orderPaymentService, couponService, authService } from '../services/api.service';
 import { Coupon, Customer, OrderPayload } from '../types/api.types';
-import { initStripe } from '@stripe/stripe-react-native';
+import { initStripe, initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 import { API_CONFIG } from '../../env';
 import WebView from 'react-native-webview';
 import { useForm, Controller } from 'react-hook-form';
@@ -151,134 +151,151 @@ const CartScreen = () => {
     return subtotal;
   };
 
-  const handleCheckout = async (data: { firstName: string; email: string; cashOnDelivery: boolean }) => {
-    setIsLoading(true);
-    setTokenError(null);
+ const handleCheckout = async (data: { firstName: string; email: string; cashOnDelivery: boolean }) => {
+  setIsLoading(true);
+  setTokenError(null);
 
-    console.log('Using API_BASE_URL:', API_CONFIG.BASE_URL);
-    console.log('Country before payload:', country);
+  console.log('Using API_BASE_URL:', API_CONFIG.BASE_URL);
+  console.log('Country before payload:', country);
 
-    let isTokenValid = true;
-    if (user && token) {
-      try {
-        isTokenValid = await authService.checkAndRefreshToken();
-        if (!isTokenValid) {
-          setTokenError('Your session has expired. Please sign in again.');
-          setIsLoading(false);
-          return;
-        }
-      } catch (error: any) {
-        console.error('Token validation error:', error.message);
+  let isTokenValid = true;
+  if (user && token) {
+    try {
+      isTokenValid = await authService.checkAndRefreshToken();
+      if (!isTokenValid) {
         setTokenError('Your session has expired. Please sign in again.');
         setIsLoading(false);
         return;
       }
+    } catch (error: any) {
+      console.error('Token validation error:', error.message);
+      setTokenError('Your session has expired. Please sign in again.');
+      setIsLoading(false);
+      return;
     }
+  }
 
-    let customerId: string;
-    let customerEmail: string;
-    if (user) {
-      if (!user.id || !user.email) {
-        console.error('User is missing id or email:', user);
-        Alert.alert('Error', 'User data is incomplete. Please sign in again.');
-        setIsLoading(false);
-        return;
-      }
-      customerId = user.id;
-      customerEmail = user.email;
-    } else {
-      try {
-        const customerResponse = await orderPaymentService.checkoutUser({
-          name: data.firstName,
-          email: data.email,
-          isUser: false,
-          isadmin: false,
-        });
-        console.log('Customer response in handleCheckout:', JSON.stringify(customerResponse, null, 2));
-        if (customerResponse.success && customerResponse.customer) {
-          customerId = String(customerResponse.customer.id);
-          customerEmail = customerResponse.customer.email;
-        } else {
-          console.error('Invalid customer response:', customerResponse);
-          Alert.alert('Error', 'Failed to create customer.');
-          setIsLoading(false);
-          return;
-        }
-      } catch (error: any) {
-        console.error('Customer creation error:', error.message);
+  let customerId: string;
+  let customerEmail: string;
+  if (user) {
+    if (!user.id || !user.email) {
+      console.error('User is missing id or email:', user);
+      Alert.alert('Error', 'User data is incomplete. Please sign in again.');
+      setIsLoading(false);
+      return;
+    }
+    customerId = user.id;
+    customerEmail = user.email;
+  } else {
+    try {
+      const customerResponse = await orderPaymentService.checkoutUser({
+        name: data.firstName,
+        email: data.email,
+        isUser: false,
+        isadmin: false,
+      });
+      console.log('Customer response in handleCheckout:', JSON.stringify(customerResponse, null, 2));
+      if (customerResponse.success && customerResponse.customer) {
+        customerId = String(customerResponse.customer.id);
+        customerEmail = customerResponse.customer.email;
+      } else {
+        console.error('Invalid customer response:', customerResponse);
         Alert.alert('Error', 'Failed to create customer.');
         setIsLoading(false);
         return;
       }
-    }    
-    
-    const orderPayload: OrderPayload = {
-      customerEmail,
-      customerId,
-      items: items.map((item) => ({
-        productId: String(item.id).split('_')[0],
-        quantity: item.quantity,
-        price: item.price,
-        selectedDay: country === 'PAK' ? (item.day || '') : '',
-        selectedHour: country === 'PAK' ? (item.hour || null) : null,
-      })),
-      country: country === 'PAK' ? 'PK' : 'USA',
-      discount: appliedCoupon ? appliedCoupon.discount : 0,
-    };
-
-    try {
-      console.log('Order payload:', JSON.stringify(orderPayload, null, 2));
-
-      if (data.cashOnDelivery) {
-        console.log('Calling createCashOnDelivery:', orderPayload);
-        const codResponse = await orderPaymentService.createCashOnDelivery(orderPayload);
-        console.log('COD response:', JSON.stringify(codResponse, null, 2));
-        if (codResponse.success) {
-          clearCart();
-          setCheckoutModalVisible(false);
-          Alert.alert('Success', 'Your order has been placed successfully!');
-        } else {
-          console.error('COD response:', JSON.stringify(codResponse, null, 2));
-          Alert.alert('Error', codResponse.message || 'Failed to process COD order.');
-        }
-      } else if (country === 'PAK') {
-        console.log('Calling createPaymentSession:', orderPayload);
-        const sessionResponse = await orderPaymentService.createPaymentSession(orderPayload);
-        console.log('Session creation response:', JSON.stringify(sessionResponse, null, 2));
-        if (sessionResponse.success && sessionResponse.data?.sessionId) {
-          clearCart();
-          setCheckoutModalVisible(false);
-          const bopPaymentUrl = `https://ap-gateway.mastercard.com/checkout/pay/${sessionResponse.data.sessionId}?checkoutVersion=1.0.0`;
-          console.log('Opening BOP payment URL:', bopPaymentUrl);
-          setWebViewUrl(bopPaymentUrl);
-          setWebViewVisible(true);
-        } else {
-          console.error('Session creation response:', JSON.stringify(sessionResponse, null, 2));
-          Alert.alert('Error', sessionResponse.message || 'Failed to create payment session.');
-        }
-      } else {
-        console.log('Calling handleStripeCheckout:', orderPayload);
-        const stripeResponse = await orderPaymentService.handleStripeCheckout(orderPayload);
-        console.log('Stripe session response:', JSON.stringify(stripeResponse, null, 2));
-        if (stripeResponse.success && stripeResponse.data?.sessionId) {
-          const checkoutUrl = `https://checkout.stripe.com/c/pay/${stripeResponse.data.sessionId}`;
-          console.log('Opening Stripe checkout URL:', checkoutUrl);
-          setWebViewUrl(checkoutUrl);
-          setWebViewVisible(true);
-          setCheckoutModalVisible(false);
-        } else {
-          console.error('Stripe session response:', JSON.stringify(stripeResponse, null, 2));
-          Alert.alert('Error', 'Failed to initiate Stripe checkout.');
-        }
-      }
     } catch (error: any) {
-      console.error('Checkout error:', error.message, error.stack);
-      console.error('Error details:', JSON.stringify(error, null, 2));
-      Alert.alert('Error', `Checkout failed: ${error.message || 'Unknown error'}`);
-    } finally {
+      console.error('Customer creation error:', error.message);
+      Alert.alert('Error', 'Failed to create customer.');
       setIsLoading(false);
+      return;
     }
+  }
+
+  const orderPayload: OrderPayload = {
+    customerEmail,
+    customerId,
+    items: items.map((item) => ({
+      productId: String(item.id).split('_')[0],
+      quantity: item.quantity,
+      price: item.price,
+      selectedDay: item.type === 'qurbani' ? (item.day || '') : '', // Preserve for qurbani items
+      selectedHour: item.type === 'qurbani' ? (item.hour || null) : null, // Preserve for qurbani items
+    })),
+    country: country === 'PAK' ? 'PK' : 'USA',
+    discount: appliedCoupon ? appliedCoupon.discount : 0,
   };
+
+  try {
+    console.log('Order payload:', JSON.stringify(orderPayload, null, 2));
+
+    if (data.cashOnDelivery) {
+      console.log('Calling createCashOnDelivery:', orderPayload);
+      const codResponse = await orderPaymentService.createCashOnDelivery(orderPayload);
+      console.log('COD response:', JSON.stringify(codResponse, null, 2));
+      if (codResponse.success) {
+        clearCart();
+        setCheckoutModalVisible(false);
+        Alert.alert('Success', 'Your order has been placed successfully!');
+      } else {
+        console.error('COD response:', JSON.stringify(codResponse, null, 2));
+        Alert.alert('Error', codResponse.message || 'Failed to process COD order.');
+      }
+    } else if (country === 'PAK') {
+      console.log('Calling createPaymentSession:', orderPayload);
+      const sessionResponse = await orderPaymentService.createPaymentSession(orderPayload);
+      console.log('Session creation response:', JSON.stringify(sessionResponse, null, 2));
+      if (sessionResponse.success && sessionResponse.data?.sessionId) {
+        clearCart();
+        setCheckoutModalVisible(false);
+        const bopPaymentUrl = `https://ap-gateway.mastercard.com/checkout/pay/${sessionResponse.data.sessionId}?checkoutVersion=1.0.0`;
+        console.log('Opening BOP payment URL:', bopPaymentUrl);
+        setWebViewUrl(bopPaymentUrl);
+        setWebViewVisible(true);
+      } else {
+        console.error('Session creation response:', JSON.stringify(sessionResponse, null, 2));
+        Alert.alert('Error', sessionResponse.message || 'Failed to create payment session.');
+      }
+    } else {
+      console.log('Calling createPaymentIntent:', orderPayload);
+      const paymentIntentResponse = await orderPaymentService.createPaymentIntent(orderPayload);
+      console.log('Payment Intent response:', JSON.stringify(paymentIntentResponse, null, 2));
+      if (paymentIntentResponse.success && paymentIntentResponse.data?.clientSecret) {
+        setCheckoutModalVisible(false);
+        const { error: initError } = await initPaymentSheet({
+          merchantDisplayName: 'Alif Cattle & Goat Farm',
+          paymentIntentClientSecret: paymentIntentResponse.data.clientSecret,
+        });
+        if (initError) {
+          console.error('Payment Sheet init error:', initError);
+          Alert.alert('Error', `Payment initialization failed: ${initError.message}`);
+          setIsLoading(false);
+          return;
+        }
+
+        const { error: paymentError } = await presentPaymentSheet();
+        if (paymentError) {
+          console.error('Payment Sheet error:', paymentError);
+          Alert.alert('Error', `Payment failed: ${paymentError.message}`);
+          setIsLoading(false);
+          return;
+        }
+
+        clearCart();
+        Alert.alert('Success', 'Payment successful! Order placed.');
+      } else {
+        console.error('Payment Intent response:', JSON.stringify(paymentIntentResponse, null, 2));
+        Alert.alert('Error', 'Failed to initiate Stripe payment.');
+      }
+    }
+  } catch (error: any) {
+    console.error('Checkout error:', error.message, error.stack);
+    console.error('Error details:', JSON.stringify(error, null, 2));
+    Alert.alert('Error', `Checkout failed: ${error.message || 'Unknown error'}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const renderCheckoutModal = () => (
     <Modal
@@ -636,45 +653,47 @@ const CartScreen = () => {
         </>
       )}
       {renderCheckoutModal()}
-      <Modal
-        visible={isWebViewVisible}
-        animationType="slide"
-        onRequestClose={() => setWebViewVisible(false)}
-      >
-        <View style={styles.webViewContainer}>
-          <View style={styles.webViewHeader}>
-            <Text style={[styles.webViewTitle, { color: theme.colors.text }]}>
-              {country === 'PAK' ? 'Bank of Punjab Checkout' : 'Stripe Checkout'}
-            </Text>
-            <TouchableOpacity onPress={() => setWebViewVisible(false)}>
-              <Ionicons name="close" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
+      {country === 'PAK' && (
+        <Modal
+          visible={isWebViewVisible}
+          animationType="slide"
+          onRequestClose={() => setWebViewVisible(false)}
+        >
+          <View style={styles.webViewContainer}>
+            <View style={styles.webViewHeader}>
+              <Text style={[styles.webViewTitle, { color: theme.colors.text }]}>
+                Bank of Punjab Checkout
+              </Text>
+              <TouchableOpacity onPress={() => setWebViewVisible(false)}>
+                <Ionicons name="close" size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+            <WebView
+              source={{ uri: webViewUrl }}
+              style={styles.webView}
+              onNavigationStateChange={(navState) => {
+                console.log('WebView navigation:', navState.url);
+                if (navState.url.includes('success') || navState.url.includes('__hc-action-success')) {
+                  clearCart();
+                  setWebViewVisible(false);
+                  Alert.alert('Success', 'Payment successful! Order placed.');
+                } else if (navState.url.includes('cancel') || navState.url.includes('__hc-action-cancel')) {
+                  setWebViewVisible(false);
+                  Alert.alert('Cancelled', 'Payment was cancelled.');
+                }
+              }}
+              onError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.error('WebView error:', nativeEvent);
+                Alert.alert('Error', 'Failed to load payment page.');
+                setWebViewVisible(false);
+              }}
+              onLoadStart={() => setIsLoading(true)}
+              onLoadEnd={() => setIsLoading(false)}
+            />
           </View>
-          <WebView
-            source={{ uri: webViewUrl }}
-            style={styles.webView}
-            onNavigationStateChange={(navState) => {
-              console.log('WebView navigation:', navState.url);
-              if (navState.url.includes('success') || navState.url.includes('__hc-action-success')) {
-                clearCart();
-                setWebViewVisible(false);
-                Alert.alert('Success', 'Payment successful! Order placed.');
-              } else if (navState.url.includes('cancel') || navState.url.includes('__hc-action-cancel')) {
-                setWebViewVisible(false);
-                Alert.alert('Cancelled', 'Payment was cancelled.');
-              }
-            }}
-            onError={(syntheticEvent) => {
-              const { nativeEvent } = syntheticEvent;
-              console.error('WebView error:', nativeEvent);
-              Alert.alert('Error', 'Failed to load payment page.');
-              setWebViewVisible(false);
-            }}
-            onLoadStart={() => setIsLoading(true)}
-            onLoadEnd={() => setIsLoading(false)}
-          />
-        </View>
-      </Modal>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };

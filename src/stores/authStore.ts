@@ -4,6 +4,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/api.service';
 import { handleUnauthorized } from '../utils/authUtils';
+import { useEffect } from 'react';
 
 interface User {
   id: string;
@@ -27,7 +28,7 @@ interface AuthState {
   register: (name: string, email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  forgetPassword: (email: string) => Promise<void>;
+  forgetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   verifyOtpCode: (email: string, code: string) => Promise<void>;
   changePassword: (email: string, newPassword: string) => Promise<void>;
   clearError: () => void;
@@ -46,6 +47,7 @@ export const useAuthStore = create<AuthState>()(
       userCountry: null,
       resetPasswordEmail: null,
       resetCodeVerified: false,
+      
 
       register: async (name, email, password) => {
         set({ isLoading: true, error: null });
@@ -112,26 +114,44 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      forgetPassword: async (email) => {
-        set({ isLoading: true, error: null });
-        try {
-          const response = await authService.forgetPassword(email);
-          if (response.status === 200) {
-            set({
-              isLoading: false,
-              resetPasswordEmail: email,
-              resetCodeVerified: false,
-              isAuthenticated: false, // Ensure user is not authenticated
-            });
-          } else {
-            throw new Error(response.message || 'Failed to send reset code');
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to send reset code';
-          set({ error: errorMessage, isLoading: false });
-          throw new Error(errorMessage);
-        }
-      },
+forgetPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
+  set({ isLoading: true, error: null });
+  console.log('forgetPassword: Initial state:', JSON.stringify({
+    isAuthenticated: get().isAuthenticated,
+    resetPasswordEmail: get().resetPasswordEmail,
+    resetCodeVerified: get().resetCodeVerified,
+  }, null, 2));
+  try {
+    const response = await authService.forgetPassword(email);
+    console.log('forgetPassword response:', JSON.stringify(response, null, 2));
+    
+    if (response.data?.message === 'Reset code sent to email') {
+      set({
+        isLoading: false,
+        resetPasswordEmail: email,
+        resetCodeVerified: false,
+        isAuthenticated: false,
+        token: null,
+        user: null
+      });
+      console.log('forgetPassword: Updated state:', JSON.stringify({
+        isAuthenticated: get().isAuthenticated,
+        resetPasswordEmail: get().resetPasswordEmail,
+        resetCodeVerified: get().resetCodeVerified,
+      }, null, 2));
+      return { success: true, message: 'Reset code sent to email' };
+    } else {
+      const errorMessage = response.data?.message || response.message || 'Failed to send reset code';
+      set({ error: errorMessage, isLoading: false });
+      return { success: false, message: errorMessage };
+    }
+  } catch (error: any) {
+    console.error('forgetPassword error:', error);
+    const errorMessage = error.message || 'Failed to send reset code';
+    set({ error: errorMessage, isLoading: false });
+    return { success: false, message: errorMessage };
+  }
+},
 
       verifyOtpCode: async (email, code) => {
         set({ isLoading: true, error: null });
@@ -142,8 +162,8 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
               resetCodeVerified: true,
               isAuthenticated: false,
-              token: null, // Clear any existing token
-              user: null, // Clear any existing user data
+              token: null, 
+              user: null, 
             });
           } else {
             throw new Error(response.message || 'OTP verification failed');
@@ -164,7 +184,7 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
               resetPasswordEmail: null,
               resetCodeVerified: false,
-              isAuthenticated: false, // Ensure user is not authenticated
+              isAuthenticated: false, 
             });
           } else {
             throw new Error(response.message || 'Password change failed');
