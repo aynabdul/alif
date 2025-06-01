@@ -34,39 +34,41 @@ const ChangePasswordScreen = () => {
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
+  console.log("email called Chnaghe Pass Screen", JSON.stringify(email, null, 2))
+
   // Animation refs
   const logoAnim = useRef(new Animated.Value(1)).current;
   const errorFadeAnim = useRef(new Animated.Value(0)).current;
   const errorTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setKeyboardVisible(true);
-      Animated.timing(logoAnim, {
-        toValue: 0.6,
-        duration: 200,
-        easing: Easing.ease,
-        useNativeDriver: true,
-      }).start();
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardVisible(false);
-      Animated.timing(logoAnim, {
-        toValue: 1,
-        duration: 200,
-        easing: Easing.ease,
-        useNativeDriver: true,
-      }).start();
-    });
+  // useEffect(() => {
+  //   const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+  //     setKeyboardVisible(true);
+  //     Animated.timing(logoAnim, {
+  //       toValue: 0.6,
+  //       duration: 200,
+  //       easing: Easing.ease,
+  //       useNativeDriver: true,
+  //     }).start();
+  //   });
+  //   const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+  //     setKeyboardVisible(false);
+  //     Animated.timing(logoAnim, {
+  //       toValue: 1,
+  //       duration: 200,
+  //       easing: Easing.ease,
+  //       useNativeDriver: true,
+  //     }).start();
+  //   });
 
-    return () => {
-      keyboardDidHideListener.remove();
-      keyboardDidShowListener.remove();
-      if (errorTimerRef.current) {
-        clearTimeout(errorTimerRef.current);
-      }
-    };
-  }, []);
+  //   return () => {
+  //     keyboardDidHideListener.remove();
+  //     keyboardDidShowListener.remove();
+  //     if (errorTimerRef.current) {
+  //       clearTimeout(errorTimerRef.current);
+  //     }
+  //   };
+  // }, []);
 
   // Handle error message display and auto-dismiss
   useEffect(() => {
@@ -99,7 +101,7 @@ const ChangePasswordScreen = () => {
         clearTimeout(errorTimerRef.current);
       }
     };
-  }, [error, clearError]);
+  }, [clearError]);
 
   const validatePassword = (value: string): boolean => {
     if (!value.trim()) {
@@ -134,8 +136,12 @@ const ChangePasswordScreen = () => {
 
     if (isPasswordValid && isConfirmPasswordValid) {
       try {
+        console.log("Called Change Pass")
         await changePassword(email, password);
-        navigation.navigate('Login');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
       } catch (error) {
         // Error is handled by useAuthStore and displayed via error state
       }

@@ -309,7 +309,6 @@ export const categoryService = {
     try {
       console.log('Calling API: getCategories with URL:', `${API_BASE_URL}${ENDPOINTS.CATEGORIES}`);
       const response: AxiosResponse = await api.get(ENDPOINTS.CATEGORIES);
-      console.log('Categories Response:', response);
       return {
         status: response.data.status,
         success: true,

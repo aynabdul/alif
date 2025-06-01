@@ -114,56 +114,56 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-forgetPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
-  set({ isLoading: true, error: null });
-  console.log('forgetPassword: Initial state:', JSON.stringify({
-    isAuthenticated: get().isAuthenticated,
-    resetPasswordEmail: get().resetPasswordEmail,
-    resetCodeVerified: get().resetCodeVerified,
-  }, null, 2));
-  try {
-    const response = await authService.forgetPassword(email);
-    console.log('forgetPassword response:', JSON.stringify(response, null, 2));
-    
-    if (response.data?.message === 'Reset code sent to email') {
-      set({
-        isLoading: false,
-        resetPasswordEmail: email,
-        resetCodeVerified: false,
-        isAuthenticated: false,
-        token: null,
-        user: null
-      });
-      console.log('forgetPassword: Updated state:', JSON.stringify({
-        isAuthenticated: get().isAuthenticated,
-        resetPasswordEmail: get().resetPasswordEmail,
-        resetCodeVerified: get().resetCodeVerified,
-      }, null, 2));
-      return { success: true, message: 'Reset code sent to email' };
-    } else {
-      const errorMessage = response.data?.message || response.message || 'Failed to send reset code';
-      set({ error: errorMessage, isLoading: false });
-      return { success: false, message: errorMessage };
-    }
-  } catch (error: any) {
-    console.error('forgetPassword error:', error);
-    const errorMessage = error.message || 'Failed to send reset code';
-    set({ error: errorMessage, isLoading: false });
-    return { success: false, message: errorMessage };
-  }
-},
+      forgetPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
+        // set({ isLoading: true, error: null });
+        // console.log('forgetPassword: Initial state:', JSON.stringify({
+        //   isAuthenticated: get().isAuthenticated,
+        //   resetPasswordEmail: get().resetPasswordEmail,
+        //   resetCodeVerified: get().resetCodeVerified,
+        // }, null, 2));
+        try {
+          const response = await authService.forgetPassword(email);
+          console.log('forgetPassword response:', JSON.stringify(response, null, 2));
+
+          if (response.data?.message === 'Reset code sent to email') {
+            set({
+              // isLoading: false,
+              resetPasswordEmail: email,
+              // resetCodeVerified: false,
+              // isAuthenticated: false,
+              // token: null,
+              // user: null
+            });
+            // console.log('forgetPassword: Updated state:', JSON.stringify({
+            //   isAuthenticated: get().isAuthenticated,
+            //   resetPasswordEmail: get().resetPasswordEmail,
+            //   resetCodeVerified: get().resetCodeVerified,
+            // }, null, 2));
+            return { success: true, message: 'Reset code sent to email' };
+          } else {
+            const errorMessage = response.data?.message || response.message || 'Failed to send reset code';
+            set({ error: errorMessage, isLoading: false });
+            return { success: false, message: errorMessage };
+          }
+        } catch (error: any) {
+          console.error('forgetPassword error:', error);
+          const errorMessage = error.message || 'Failed to send reset code';
+          set({ error: errorMessage, isLoading: false });
+          return { success: false, message: errorMessage };
+        }
+      },
 
       verifyOtpCode: async (email, code) => {
-        set({ isLoading: true, error: null });
+        // set({ isLoading: true, error: null });
         try {
           const response = await authService.verifyOtpCode(email, code);
           if (response.status === 200) {
             set({
-              isLoading: false,
+              // isLoading: false,
               resetCodeVerified: true,
-              isAuthenticated: false,
-              token: null, 
-              user: null, 
+              // isAuthenticated: false,
+              // token: null, 
+              // user: null, 
             });
           } else {
             throw new Error(response.message || 'OTP verification failed');
@@ -176,15 +176,16 @@ forgetPassword: async (email: string): Promise<{ success: boolean; message: stri
       },
 
       changePassword: async (email, newPassword) => {
-        set({ isLoading: true, error: null });
+        // set({ isLoading: true, error: null });
         try {
-          const response = await authService.changePassword(email, newPassword);
-          if (response.status === 200) {
+          const response:any = await authService.changePassword(email, newPassword);
+          console.log("response ->", JSON.stringify(response, null, 2))
+          if (response) {
             set({
-              isLoading: false,
+              // isLoading: false,
               resetPasswordEmail: null,
-              resetCodeVerified: false,
-              isAuthenticated: false, 
+              // resetCodeVerified: false,
+              // isAuthenticated: false, 
             });
           } else {
             throw new Error(response.message || 'Password change failed');
