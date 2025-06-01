@@ -69,7 +69,7 @@ const ProductDetailsScreen = () => {
   const route = useRoute<ProductDetailsRouteProp>();
   const { productId } = route.params;
   const { addItem, items: cartItems } = useCartStore();
-  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlistStore();
+  const { addProductToWishlist, removeFromWishlist, isInWishlist } = useWishlistStore();
   const insets = useSafeAreaInsets();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -152,16 +152,16 @@ const ProductDetailsScreen = () => {
     setQuantity(quantity + value);
   };
 
-  const handleWishlistToggle = () => {
-    if (!product) return;
-    if (inWishlist) {
-      removeFromWishlist(product.id);
-      Alert.alert('Removed', 'Item removed from your wishlist');
-    } else {
-      addToWishlist(product);
-      Alert.alert('Added to Wishlist', 'Item added to your wishlist');
-    }
-  };
+const handleWishlistToggle = () => {
+  if (!product) return;
+  if (inWishlist) {
+    removeFromWishlist(product.id);
+    Alert.alert('Removed', 'Item removed from your wishlist');
+  } else {
+    addProductToWishlist(product);
+    Alert.alert('Added to Wishlist', 'Item added to your wishlist');
+  }
+};
 
   const renderDescription = () => {
     if (!product) return null;

@@ -29,7 +29,7 @@ const QurbaniDetailsScreen = () => {
   const navigation = useNavigation();
   const { theme, country } = useTheme();
   const { addItem } = useCartStore();
-  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlistStore();
+  const { addQurbaniToWishlist, removeFromWishlist, isInWishlist } = useWishlistStore();
   const { qurbaniId } = route.params;
   const insets = useSafeAreaInsets();
 
@@ -107,15 +107,27 @@ const QurbaniDetailsScreen = () => {
   // Helper: get day slots from API response
   const daySlots = slaughts
     ? [
-        { label: 'Day 1', value: 'day1USA', slots: country === 'US' ? slaughts.day1USA : slaughts.day1Pak },
-        { label: 'Day 2', value: 'day2USA', slots: country === 'US' ? slaughts.day2USA : slaughts.day2Pak },
-        { label: 'Day 3', value: 'day3USA', slots: country === 'US' ? slaughts.day3USA : slaughts.day3Pak },
+        { 
+          label: 'Day 1', 
+          value: country === 'US' ? 'day1USA' : 'day1Pak', 
+          slots: country === 'US' ? slaughts.day1USA : slaughts.day1Pak 
+        },
+        { 
+          label: 'Day 2', 
+          value: country === 'US' ? 'day2USA' : 'day2Pak', 
+          slots: country === 'US' ? slaughts.day2USA : slaughts.day2Pak 
+        },
+        { 
+          label: 'Day 3', 
+          value: country === 'US' ? 'day3USA' : 'day3Pak', 
+          slots: country === 'US' ? slaughts.day3USA : slaughts.day3Pak 
+        },
       ]
     : [];
 
   // Helper: get hours for selected day (US only)
   const hourSlots = selectedDay
-    ? slaughtTimes.filter((time) => time.eidDay === `${selectedDay}`)
+    ? slaughtTimes.filter((time) => time.eidDay === selectedDay && time.totalQuota > 0)
     : [];
 
   // Helper: get images
@@ -138,11 +150,12 @@ const QurbaniDetailsScreen = () => {
   const priceStart = isPakistan ? qurbani?.priceforpak : qurbani?.priceforus;
   const priceEnd = isPakistan ? qurbani?.endpriceforpak : qurbani?.endpriceforus;
   const currency = isPakistan ? 'PKR' : 'USD';
+// Replace the existing displayPrice calculation with this:
   const displayPrice = selectedDay
-    ? selectedDay === 'day1'
-      ? priceEnd || priceStart || 0
-      : priceStart || 0
-    : null;
+  ? selectedDay.includes('day1') 
+    ? (isPakistan ? qurbani?.endpriceforpak : qurbani?.endpriceforus) || 0
+    : (isPakistan ? qurbani?.priceforpak : qurbani?.priceforus) || 0
+  : null;
 
   // Helper: get category
   const category = qurbani?.catagory || qurbani?.catagory || '';
@@ -154,18 +167,12 @@ const QurbaniDetailsScreen = () => {
   const inWishlist = qurbani ? isInWishlist(qurbani.id) : false;
   const handleWishlistToggle = () => {
     if (!qurbani) return;
-
     if (inWishlist) {
       removeFromWishlist(qurbani.id);
-      Alert.alert('Removed', 'Item removed from your wishlist');
+      Alert.alert('Removed', 'Qurbani removed from your wishlist');
     } else {
-      addToWishlist({
-        ...qurbani,
-        productName: qurbani.title || qurbani.qurbaniName || '',
-        productDescription: qurbani.description || qurbani.qurbaniDescription || '',
-        id: qurbani.id,
-      } as any);
-      Alert.alert('Added to Wishlist', 'Item added to your wishlist');
+      addQurbaniToWishlist(qurbani);
+      Alert.alert('Added to Wishlist', 'Qurbani added to your wishlist');
     }
   };
 
@@ -180,16 +187,17 @@ const QurbaniDetailsScreen = () => {
     setAddingToCart(true);
     try {
       if (qurbani) {
-        addItem({
-          id: qurbani.id,
+        const cartItem = {
+          id: qurbani.id, // Original ID, will be transformed by generateCartItemId
           name: qurbani.title || qurbani.qurbaniName || '',
           price: displayPrice || 0,
           quantity: 1,
           image: { uri: typeof mainImageUrl === 'string' ? mainImageUrl : undefined },
-          type: 'qurbani',
+          type: 'qurbani' as const,
           day: selectedDay,
           hour: country === 'US' ? (selectedHour ?? undefined) : undefined,
-        });
+        };
+        addItem(cartItem);
         setAddToCartStatus('success');
         Alert.alert('Added to Cart', 'Qurbani has been added to your cart.');
       }
@@ -390,7 +398,7 @@ const QurbaniDetailsScreen = () => {
         <View style={styles.skuPriceSection}>
           {sku && <Text style={[styles.sku, { color: theme.colors.text }]}>SKU: {sku}</Text>}
           <Text style={[styles.priceRange, { color: theme.colors.brand }]}>
-            {currency} {priceStart} - {priceEnd}
+            {currency} {priceStart} - {currency} {priceEnd}
           </Text>
         </View>
         {/* Description section */}

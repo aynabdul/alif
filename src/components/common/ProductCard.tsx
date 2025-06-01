@@ -23,7 +23,7 @@ export interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => {
   const { theme, country } = useTheme();
   const { addItem } = useCartStore();
-  const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlistStore();
+  const { isInWishlist, addProductToWishlist, removeFromWishlist } = useWishlistStore();
 
   const inWishlist = isInWishlist(product.id);
 
@@ -49,23 +49,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => {
       removeFromWishlist(product.id);
       Alert.alert('Removed', `${product.productName} has been removed from your wishlist.`);
     } else {
-      const minimalProductData = {
-        id: product.id,
-        productName: product.productName,
-        OriginalPricePak: product.OriginalPricePak,
-        OriginalPriceUSA: product.OriginalPriceUSA,
-        PriceAfterDiscountPak: product.PriceAfterDiscountPak,
-        PriceAfterDiscountUSA: product.PriceAfterDiscountUSA,
-        IsDiscountedProductInPak: product.IsDiscountedProductInPak,
-        IsDiscountedProductInUSA: product.IsDiscountedProductInUSA,
-        discountOfferinPak: product.discountOfferinPak,
-        discountOfferinUSA: product.discountOfferinUSA,
-        categoryId: product.categoryId,
-        ProductImages: product.ProductImages
-          ? [{ imageUrl: product.ProductImages[0]?.imageUrl || '' }]
-          : [],
-      } as Product;
-      addToWishlist(minimalProductData);
+      addProductToWishlist(product);
       Alert.alert('Added', `${product.productName} has been added to your wishlist.`);
     }
   };

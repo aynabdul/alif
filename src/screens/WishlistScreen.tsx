@@ -1,27 +1,48 @@
-import React from 'react';
+import React, { JSX } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   SafeAreaView,
+  SectionList,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { useWishlistStore } from '../stores/wishlistStore';
 import { Ionicons } from '@expo/vector-icons';
 import ProductCard from '../components/common/ProductCard';
+import QurbaniCard from '../components/common/QurbaniCard';
 import { StatusBar } from 'expo-status-bar';
+import { Product } from '../types/api.types';
+import { Qurbani } from '../types/api.types';
+import { RootStackNavigationProp } from '../types/navigation.types';
+
+type SectionData = {
+  title: string;
+  data: (Product | Qurbani)[];
+  renderItem: ({ item }: { item: Product | Qurbani }) => JSX.Element;
+};
 
 const WishlistScreen = () => {
   const { theme } = useTheme();
-  const navigation = useNavigation();
-  const { items, removeFromWishlist, clearWishlist } = useWishlistStore();
+  const navigation = useNavigation<RootStackNavigationProp>();
+  const { 
+    getProducts, 
+    getQurbanis, 
+    clearWishlist,
+  } = useWishlistStore();
+  
+  const products = getProducts();
+  const qurbanis = getQurbanis();
+  const hasItems = products.length > 0 || qurbanis.length > 0;
 
   const handleProductPress = (productId: string) => {
-    // @ts-ignore
     navigation.navigate('ProductDetails', { productId });
+  };
+
+  const handleQurbaniPress = (qurbaniId: string) => {
+    navigation.navigate('QurbaniDetails', { qurbaniId });
   };
 
   const handleClearWishlist = () => {
@@ -35,13 +56,13 @@ const WishlistScreen = () => {
         Your wishlist is empty
       </Text>
       <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
-        Save your favorite products here
+        Save your favorite items here
       </Text>
       <TouchableOpacity
         style={[styles.browseButton, { backgroundColor: theme.colors.brand }]}
         onPress={() => navigation.navigate('Home' as never)}
       >
-        <Text style={styles.browseButtonText}>Browse Products</Text>
+        <Text style={styles.browseButtonText}>Browse Items</Text>
       </TouchableOpacity>
     </View>
   );
@@ -49,7 +70,7 @@ const WishlistScreen = () => {
   const renderHeader = () => (
     <View style={styles.header}>
       <Text style={[styles.title, { color: theme.colors.text }]}>My Wishlist</Text>
-      {items.length > 0 && (
+      {hasItems && (
         <TouchableOpacity onPress={handleClearWishlist}>
           <Text style={[styles.clearButton, { color: theme.colors.error }]}>
             Clear All
@@ -59,26 +80,57 @@ const WishlistScreen = () => {
     </View>
   );
 
+  const sections: SectionData[] = [
+    {
+      title: 'Products',
+      data: products,
+      renderItem: ({ item }) => (
+        <View style={styles.cardContainer}>
+          <ProductCard
+            product={item as Product}
+            onPress={() => handleProductPress(String(item.id))}
+          />
+        </View>
+      ),
+    },
+    {
+      title: 'Qurbanis',
+      data: qurbanis,
+      renderItem: ({ item }) => (
+        <View style={styles.cardContainer}>
+          <QurbaniCard
+            qurbani={item as Qurbani}
+            onPress={() => handleQurbaniPress(String(item.id))}
+          />
+        </View>
+      ),
+    },
+  ];
+
+  const renderSectionHeader = ({ section }: { section: SectionData }) => {
+    if (section.data.length === 0) return null;
+    return (
+      <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>
+        {section.title}
+      </Text>
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar style={theme.statusBarStyle} />
       {renderHeader()}
-      {items.length === 0 ? (
+      
+      {!hasItems ? (
         renderEmptyWishlist()
       ) : (
-        <FlatList
-          data={items}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id.toString()}
-          key={'single-column'} // Prevent "changing numColumns" warning
-          contentContainerStyle={styles.productsList}
-          renderItem={({ item }) => (
-            <View style={styles.productCardContainer}>
-              <ProductCard
-                product={item}
-                onPress={() => handleProductPress(String(item.id))}
-              />
-            </View>
-          )}
+          contentContainerStyle={styles.listContent}
+          renderSectionHeader={renderSectionHeader}
+          renderItem={({ item, section }) => section.renderItem({ item })}
+          ListFooterComponent={<View style={styles.footer} />}
         />
       )}
     </SafeAreaView>
@@ -104,13 +156,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  productsList: {
-    paddingVertical: 16,
+  listContent: {
     paddingBottom: 40,
   },
-  productCardContainer: {
-    width: '100%',
+  cardContainer: {
     marginBottom: 16,
+  },
+  sectionHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  footer: {
+    height: 20,
   },
   emptyContainer: {
     flex: 1,
