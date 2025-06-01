@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
-import { Ionicons } from '@expo/vector-icons';
+import { Beef, Drumstick, Ham } from 'lucide-react-native';
 import { Category } from '../../types/api.types';
 
 export interface CategoryCardProps {
@@ -9,38 +9,38 @@ export interface CategoryCardProps {
   onPress?: () => void;
 }
 
-const categoryIconMap: Record<string, string> = {
-  'ALIF BEEF': 'nutrition',
-  'ALIF MUTTON': 'restaurant',
-  'ALIF CHICKEN': 'restaurant-outline',
-  'ALIF SEAFOOD': 'fish',
-  DAIRY: 'water',
-  OFFERS: 'pricetags',
-  QURBANI: 'gift',
+// Custom icon mapping with Lucide icons
+const categoryIconMap: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
+  'BEEF': Beef,
+  'MUTTON': Drumstick, // Using PiggyBank as a placeholder for ham/mutton
+  'CHICKEN': Ham,
 };
 
-const getCategoryIcon = (categoryName: string): string => {
-  const normalizedName = categoryName?.toUpperCase() || '';
+const getCategoryIcon = (categoryName: string) => {
+  const normalizedName = categoryName?.toUpperCase()?.trim() || '';
+
+  // Check for exact matches first
   if (categoryIconMap[normalizedName]) {
     return categoryIconMap[normalizedName];
   }
-  if (normalizedName.includes('BEEF')) return 'nutrition';
-  if (normalizedName.includes('MUTTON') || normalizedName.includes('GOAT')) return 'restaurant';
-  if (normalizedName.includes('CHICKEN')) return 'restaurant-outline';
-  if (normalizedName.includes('SEAFOOD') || normalizedName.includes('FISH')) return 'fish';
-  if (normalizedName.includes('DAIRY') || normalizedName.includes('MILK')) return 'water';
-  if (normalizedName.includes('OFFER') || normalizedName.includes('DISCOUNT')) return 'pricetags';
-  return 'paw';
+
+  // Check for partial matches
+  if (normalizedName.includes('BEEF')) return Beef;
+  if (normalizedName.includes('MUTTON') || normalizedName.includes('GOAT'))
+    return Drumstick;
+  if (normalizedName.includes('CHICKEN') || normalizedName.includes('POULTRY'))
+    return Ham;
+  return undefined;
 };
 
 const CategoryCard: React.FC<CategoryCardProps> = ({ category, onPress }) => {
   const { theme } = useTheme();
-  const iconName = getCategoryIcon(category.categoryName);
+  const IconComponent = getCategoryIcon(category.categoryName);
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
       <View style={[styles.iconContainer, { backgroundColor: theme.colors.primaryLight }]}>
-        <Ionicons name={iconName as any} size={22} color={theme.colors.brand} />
+        {IconComponent && <IconComponent size={22} color={theme.colors.brand} />}
       </View>
       <Text style={[styles.name, { color: theme.colors.text }]} numberOfLines={1}>
         {category.categoryName}
@@ -48,7 +48,6 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, onPress }) => {
     </TouchableOpacity>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     width: 80,

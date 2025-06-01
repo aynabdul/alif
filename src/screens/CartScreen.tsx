@@ -95,7 +95,7 @@ const CartScreen = () => {
     }
   }, [isCheckoutModalVisible]);
 
-  const handleRemoveItem = (itemId: string | number) => {
+const handleRemoveItem = (itemId: string | number) => {
     Alert.alert(
       'Remove Item',
       'Are you sure you want to remove this item from your cart?',
@@ -103,7 +103,7 @@ const CartScreen = () => {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
-          onPress: () => removeItem(itemId),
+          onPress: () => removeItem(itemId), // itemId is already composite
           style: 'destructive',
         },
       ]
@@ -115,7 +115,7 @@ const CartScreen = () => {
       handleRemoveItem(itemId);
       return;
     }
-    updateQuantity(itemId, newQuantity);
+    updateQuantity(itemId, newQuantity); // itemId is already composite
   };
 
   const applyCoupon = async () => {

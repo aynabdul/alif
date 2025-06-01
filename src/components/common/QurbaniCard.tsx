@@ -25,27 +25,28 @@ interface QurbaniCardProps {
 
 const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { theme } = useTheme();
-  const { addItem, country } = useCartStore();
-  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlistStore();
+  const { theme, country } = useTheme();
+  const { addItem } = useCartStore();
+  const { addQurbaniToWishlist, removeFromWishlist, isInWishlist } = useWishlistStore();
 
   const inWishlist = isInWishlist(qurbani.id);
   
   // Get price based on country
-  const startPrice = country === 'US' 
-    ? (qurbani.qurbaniPriceUSA || qurbani.priceforus || 0)
-    : (qurbani.qurbaniPricePak || qurbani.priceforpak || 0);
+  const isPakistan = country === 'PAK';
+  const startPrice = isPakistan ? 
+    (qurbani.priceforpak || qurbani.qurbaniPricePak || 0) : 
+    (qurbani.priceforus || qurbani.qurbaniPriceUSA || 0);
   
-  const endPrice = country === 'US'
-    ? (qurbani.endpriceforus || qurbani.qurbaniPriceUSA || qurbani.priceforus || 0)
-    : (qurbani.endpriceforpak || qurbani.qurbaniPricePak || qurbani.priceforpak || 0);
+  const endPrice = isPakistan ? 
+    (qurbani.endpriceforpak || qurbani.qurbaniPricePak || startPrice) : 
+    (qurbani.endpriceforus || qurbani.qurbaniPriceUSA || startPrice);
   
-  const currencySymbol = country === 'US' ? '$' : 'PKR ';
+  const currencySymbol = isPakistan ? 'PKR' : '$';
   
   // Get name, subtitle, and category
   const name = qurbani.qurbaniName || qurbani.title || 'Unnamed Qurbani';
   const subtitle = qurbani.subtitle || '';
-  const category = qurbani.catagory || qurbani.catagory || ''; // Handle both 'category' and 'catagory' typos
+  const category = qurbani.catagory || qurbani.catagory || '';
   
   // Get the first qurbani image or use placeholder
   let imageUrl = IMAGE_PLACEHOLDERS.PRODUCT;
@@ -56,8 +57,6 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
     imageUrl = qurbani.QurbaniImages[0].imageUrl;
   }
   
-  // If the image URL is relative, prepend the API base URL
-  console.log('Qurbani Image URL:', imageUrl);
   if (imageUrl && imageUrl.startsWith('/')) {
     imageUrl = `${API_BASE_URL}${imageUrl}`;
   }
@@ -75,22 +74,17 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
       removeFromWishlist(qurbani.id);
       Alert.alert('Removed', `${name} has been removed from your wishlist.`);
     } else {
-      addToWishlist({
-        id: qurbani.id,
-        productName: name,
-        priceforus: qurbani.priceforus || qurbani.qurbaniPriceUSA,
-        priceforpak: qurbani.priceforpak || qurbani.qurbaniPricePak,
-      } as any);
+      addQurbaniToWishlist(qurbani);
       Alert.alert('Added', `${name} has been added to your wishlist.`);
     }
   };
   
-  // Format price display as range
-  const priceDisplay = startPrice === endPrice
-    ? `${currencySymbol}${startPrice.toFixed(2)}`
-    : `${currencySymbol}${startPrice.toFixed(2)} - ${currencySymbol}${endPrice.toFixed(2)}`;
+  // Format price display as range only if there's an actual range
+  const shouldShowRange = startPrice !== endPrice;
+  const priceDisplay = shouldShowRange
+    ? `${currencySymbol}${startPrice.toFixed(2)} - ${currencySymbol}${endPrice.toFixed(2)}`
+    : `${currencySymbol}${startPrice.toFixed(2)}`;
   
-  // Use provided onPress handler or default to navigation handler
   const cardPressHandler = onPress || handlePress;
   
   return (
@@ -99,12 +93,6 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
       onPress={cardPressHandler}
       activeOpacity={0.8}
     >
-      {false && ( // Removed discount tag since Qurbani doesn't use it
-        <View style={[styles.discountTag, { backgroundColor: theme.colors.brand }]}>
-          <Text style={styles.discountText}>0% OFF</Text>
-        </View>
-      )}
-      
       <Image
         source={{ uri: imageUrl }}
         style={styles.image}
@@ -116,13 +104,6 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
           <Text style={[styles.name, { color: theme.colors.text }]} numberOfLines={2}>
             {name}
           </Text>
-          {/* {category && (
-            <View style={styles.categoryContainer}>
-              <Text style={[styles.category, { color: theme.colors.textSecondary }]}>
-                {category}
-              </Text>
-            </View>
-          )} */}
         </View>
         
         {subtitle && (
@@ -138,6 +119,7 @@ const QurbaniCard: React.FC<QurbaniCardProps> = ({ qurbani, onPress }) => {
           <Text style={[styles.price, { color: theme.colors.brand }]}>
             {priceDisplay}
           </Text>
+          {shouldShowRange}
         </View>
       </View>
 
@@ -172,20 +154,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     marginVertical: 8,
   },
-  discountTag: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    zIndex: 1,
-  },
-  discountText: {
-    color: 'white',
-    fontSize: 8,
-    fontWeight: 'bold',
-  },
   image: {
     width: '100%',
     height: 140,
@@ -203,19 +171,10 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 14,
-    fontWeight: '700', // Bolder name
+    fontWeight: '700',
     marginBottom: 1,
     height: 32,
     flex: 1,
-  },
-  categoryContainer: {
-    alignItems: 'flex-end',
-  },
-  category: {
-    fontSize: 10,
-    fontStyle: 'italic',
-    maxWidth: 50,
-    textAlign: 'right',
   },
   subtitle: {
     fontSize: 13,
@@ -227,6 +186,11 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  priceNote: {
+    fontSize: 10,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   buttonContainer: {
     flexDirection: 'row',
