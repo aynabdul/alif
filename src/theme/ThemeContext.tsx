@@ -28,7 +28,12 @@ export const useTheme = () => useContext(ThemeContext);
 const COUNTRY_PREFERENCE_KEY = '@country_preference';
 const COUNTRY_SELECTION_DATE_KEY = '@country_selection_date';
 
-const COUNTRY_SELECTION_INTERVAL = 2 * 60 * 1000; // 2 minutes for testing
+// For testing, set to 2 minutes (will be changed to 7 days in production)
+// 2 minutes = 120000 milliseconds
+// const COUNTRY_SELECTION_INTERVAL = 2 * 60 * 1000; 
+
+// 7 days = 604800000 milliseconds (use this in production)
+const COUNTRY_SELECTION_INTERVAL = 7 * 24 * 60 * 60 * 1000; 
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [country, setCountryState] = useState<CountryType>('US');

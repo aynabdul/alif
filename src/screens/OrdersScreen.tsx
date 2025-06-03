@@ -23,7 +23,7 @@ import { orderService, authService } from '../services/api.service';
 import { Ionicons } from '@expo/vector-icons';
 
 const OrdersScreen = () => {
-  const { theme } = useTheme();
+  const { theme, country } = useTheme();
   const navigation = useNavigation<RootStackNavigationProp>();
   const { user, token } = useAuthStore();
   
@@ -101,6 +101,7 @@ const OrdersScreen = () => {
         
         if (response.success) {
           console.log('Orders loaded:', response.orders?.length || 0);
+          console.log('Orders loaded:', response.orders);
           
           // Handle case where user has no orders
           if (!response.orders || response.orders.length === 0) {
@@ -163,9 +164,11 @@ const OrdersScreen = () => {
     });
   };
 
-  const formatPrice = (price: number | string) => {
+  const formatPrice = (price: number | string, authcode: string | null | undefined) => {
     const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
-    return !isNaN(numericPrice) ? numericPrice.toLocaleString() : '0';
+    const formattedValue = !isNaN(numericPrice) ? numericPrice.toLocaleString() : '0';
+    
+    return authcode ? `PKR ${formattedValue}` : `$ ${formattedValue}`;
   };
 
   const getStatusColor = (status: string = '') => {
@@ -265,8 +268,7 @@ const OrdersScreen = () => {
           <View style={styles.cardRow}>
             <Text style={styles.cardLabel}>Total Amount:</Text>
             <Text style={styles.cardValue}>
-              {item.country === 'PAK' ? '₨ ' : '$ '}
-              {formatPrice(item.totalAmount || item.totalPrice || 0)}
+              {formatPrice(item.totalAmount || item.totalPrice || 0, item.authcode)}
             </Text>
           </View>
 
@@ -357,17 +359,6 @@ const OrdersScreen = () => {
       
       <View style={styles.headerContainer}>
         <Text style={[styles.headerTitle, { color: '#37474F' }]}>🛒 My Orders</Text>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={[styles.searchInput, { backgroundColor: '#fff', borderColor: theme.colors.border }]}
-          placeholder="Search by product name, status or payment..."
-          placeholderTextColor="#aaabad"
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-        />
-        <Ionicons name="search" size={20} color="#aaabad" style={styles.searchIcon} />
       </View>
 
       {noOrders || filteredOrders.length === 0 ? (

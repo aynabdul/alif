@@ -138,7 +138,7 @@ export interface Order {
   paymentStatus?: string;
   paymentSessionId?: string | null;
   transactionId?: string | null;
-  authcode?: string | null;
+  authcode?: string | null | undefined;
   // Address fields
   city?: string | null;
   street?: string | null;

@@ -25,7 +25,7 @@ import Button from '../components/common/Button';
 import { RootStackNavigationProp } from '../types/navigation.types';
 import { orderPaymentService, couponService, authService } from '../services/api.service';
 import { Coupon, Customer, OrderPayload } from '../types/api.types';
-import { initStripe, initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
+import { initStripe, initPaymentSheet, presentPaymentSheet, CollectionMode, AddressCollectionMode, } from '@stripe/stripe-react-native';
 import { API_CONFIG } from '../../env';
 import WebView from 'react-native-webview';
 import { useForm, Controller } from 'react-hook-form';
@@ -95,28 +95,86 @@ const CartScreen = () => {
     }
   }, [isCheckoutModalVisible]);
 
-const handleRemoveItem = (itemId: string | number) => {
-    Alert.alert(
-      'Remove Item',
-      'Are you sure you want to remove this item from your cart?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          onPress: () => removeItem(itemId), // itemId is already composite
-          style: 'destructive',
+const handleRemoveItem = (item: CartItem) => {
+  Alert.alert(
+    'Remove Item',
+    'Are you sure you want to remove this item from your cart?',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        onPress: () => {
+          const itemId = useCartStore.getState().generateCartItemId(item);
+          removeItem(itemId);
         },
-      ]
-    );
-  };
+        style: 'destructive',
+      },
+    ],
+  );
+};
 
-  const handleUpdateQuantity = (itemId: string | number, newQuantity: number) => {
-    if (newQuantity < 1) {
-      handleRemoveItem(itemId);
-      return;
-    }
-    updateQuantity(itemId, newQuantity); // itemId is already composite
-  };
+const handleUpdateQuantity = (item: CartItem, newQuantity: number) => {
+  const itemId = useCartStore.getState().generateCartItemId(item);
+  if (newQuantity < 1) {
+    handleRemoveItem(item);
+    return;
+  }
+  updateQuantity(itemId, newQuantity);
+};
+
+const renderCartItem = ({ item }: { item: CartItem }) => (
+  <View style={[styles.cartItem, { backgroundColor: theme.colors.card }]}>
+    <Image source={item.image} style={styles.itemImage} />
+    <View style={styles.itemDetails}>
+      <Text style={[styles.itemName, { color: theme.colors.text }]}>{item.name}</Text>
+      <Text style={[styles.itemPrice, { color: theme.colors.primary }]}>
+        {country === 'PAK' ? 'PKR ' : '$'}
+        {item.price.toFixed(2)}
+      </Text>
+      {item.type === 'qurbani' && (
+        <View>
+          <Text style={[styles.itemDetail, { color: theme.colors.textSecondary }]}>
+            Day: {item.day || 'Not selected'}
+          </Text>
+          {item.hour && (
+            <Text style={[styles.itemDetail, { color: theme.colors.textSecondary }]}>
+              Hour: {item.hour}:00
+            </Text>
+          )}
+        </View>
+      )}
+      <View style={styles.quantityContainer}>
+        <TouchableOpacity
+          style={[styles.quantityButton, { backgroundColor: theme.colors.border }]}
+          onPress={() => handleUpdateQuantity(item, item.quantity - 1)}
+        >
+          <Ionicons name="remove" size={16} color={theme.colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.quantityText, { color: theme.colors.text }]}>
+          {item.quantity}
+        </Text>
+        <TouchableOpacity
+          style={[styles.quantityButton, { backgroundColor: theme.colors.border }]}
+          onPress={() => handleUpdateQuantity(item, item.quantity + 1)}
+        >
+          <Ionicons name="add" size={16} color={theme.colors.text} />
+        </TouchableOpacity>
+      </View>
+    </View>
+    <View style={styles.itemActions}>
+      <Text style={[styles.itemTotal, { color: theme.colors.text }]}>
+        {country === 'PAK' ? 'PKR ' : '$'}
+        {(item.price * item.quantity).toFixed(2)}
+      </Text>
+      <TouchableOpacity
+        style={styles.removeButton}
+        onPress={() => handleRemoveItem(item)}
+      >
+        <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
+      </TouchableOpacity>
+    </View>
+  </View>
+);
 
   const applyCoupon = async () => {
     if (!couponCode) {
@@ -150,6 +208,13 @@ const handleRemoveItem = (itemId: string | number) => {
     }
     return subtotal;
   };
+  const calculateDiscountAmount = () => {
+  const subtotal = calculateSubtotal();
+  if (appliedCoupon) {
+    return (subtotal * appliedCoupon.discount) / 100;
+  }
+  return 0;
+};
 
  const handleCheckout = async (data: { firstName: string; email: string; cashOnDelivery: boolean }) => {
   setIsLoading(true);
@@ -262,9 +327,26 @@ const handleRemoveItem = (itemId: string | number) => {
       console.log('Payment Intent response:', JSON.stringify(paymentIntentResponse, null, 2));
       if (paymentIntentResponse.success && paymentIntentResponse.data?.clientSecret) {
         setCheckoutModalVisible(false);
-        const { error: initError } = await initPaymentSheet({
+      const { error: initError } = await initPaymentSheet({
           merchantDisplayName: 'Alif Cattle & Goat Farm',
           paymentIntentClientSecret: paymentIntentResponse.data.clientSecret,
+          allowsDelayedPaymentMethods: true,
+          billingDetailsCollectionConfiguration: {
+            name: CollectionMode.ALWAYS, // Collect cardholder name
+            address: AddressCollectionMode.FULL // Collect full address (line1, line2, city, etc.)
+          },
+          defaultBillingDetails: {
+            name: user?.name || 'Customer',
+            email: user?.email,
+            address: {
+              country: 'US',
+              line1: '',
+              line2: '',
+              city: '',
+              postalCode: '',
+              state: '',
+            },
+          },
         });
         if (initError) {
           console.error('Payment Sheet init error:', initError);
@@ -450,14 +532,17 @@ const handleRemoveItem = (itemId: string | number) => {
                     {calculateSubtotal().toFixed(2)}
                   </Text>
                 </View>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
-                    Discount
-                  </Text>
-                  <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-                    {appliedCoupon ? `${appliedCoupon.discount}%` : 'N/A'}
-                  </Text>
-                </View>
+                {appliedCoupon && (
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
+                      Discount ({appliedCoupon.discount}%)
+                    </Text>
+                    <Text style={[styles.summaryValue, { color: theme.colors.error }]}>
+                      -{country === 'PAK' ? 'PKR ' : '$'}
+                      {calculateDiscountAmount().toFixed(2)}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
                     Shipping
@@ -489,61 +574,6 @@ const handleRemoveItem = (itemId: string | number) => {
       </TouchableOpacity>
     </Modal>
   );
-
-  const renderCartItem = ({ item }: { item: CartItem }) => (
-    <View style={[styles.cartItem, { backgroundColor: theme.colors.card }]}>
-      <Image source={item.image} style={styles.itemImage} />
-      <View style={styles.itemDetails}>
-        <Text style={[styles.itemName, { color: theme.colors.text }]}>{item.name}</Text>
-        <Text style={[styles.itemPrice, { color: theme.colors.primary }]}>
-          {country === 'PAK' ? 'PKR ' : '$'}
-          {item.price.toFixed(2)}
-        </Text>
-        {item.type === 'qurbani' && (
-          <View>
-            <Text style={[styles.itemDetail, { color: theme.colors.textSecondary }]}>
-              Day: {item.day || 'Not selected'}
-            </Text>
-            {item.hour && (
-              <Text style={[styles.itemDetail, { color: theme.colors.textSecondary }]}>
-                Hour: {item.hour}:00
-              </Text>
-            )}
-          </View>
-        )}
-        <View style={styles.quantityContainer}>
-          <TouchableOpacity
-            style={[styles.quantityButton, { backgroundColor: theme.colors.border }]}
-            onPress={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-          >
-            <Ionicons name="remove" size={16} color={theme.colors.text} />
-          </TouchableOpacity>
-          <Text style={[styles.quantityText, { color: theme.colors.text }]}>
-            {item.quantity}
-          </Text>
-          <TouchableOpacity
-            style={[styles.quantityButton, { backgroundColor: theme.colors.border }]}
-            onPress={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-          >
-            <Ionicons name="add" size={16} color={theme.colors.text} />
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View style={styles.itemActions}>
-        <Text style={[styles.itemTotal, { color: theme.colors.text }]}>
-          {country === 'PAK' ? 'PKR ' : '$'}
-          {(item.price * item.quantity).toFixed(2)}
-        </Text>
-        <TouchableOpacity
-          style={styles.removeButton}
-          onPress={() => handleRemoveItem(item.id)}
-        >
-          <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
   const renderEmptyCart = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="cart-outline" size={80} color={theme.colors.textSecondary} />
@@ -626,6 +656,17 @@ const handleRemoveItem = (itemId: string | number) => {
                 {calculateSubtotal().toFixed(2)}
               </Text>
             </View>
+              {appliedCoupon && (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
+                    Discount ({appliedCoupon.discount}%)
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: theme.colors.error }]}>
+                    -{country === 'PAK' ? 'PKR ' : '$'}
+                    {calculateDiscountAmount().toFixed(2)}
+                  </Text>
+                </View>
+              )}
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
                 Shipping
