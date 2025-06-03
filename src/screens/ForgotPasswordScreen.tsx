@@ -169,17 +169,19 @@ const ForgotPasswordScreen = () => {
 
     if (isOtpValid) {
       try {
-        await verifyOtpCode(email, otp);
-        Animated.timing(modalSlideAnim, {
-          toValue: 300,
-          duration: 300,
-          easing: Easing.in(Easing.ease),
-          useNativeDriver: true,
-        }).start(() => {
-          setModalVisible(false);
-          setOtp('');
-          navigation.navigate('ChangePassword', { email });
-        });
+        // await verifyOtpCode(email, otp);
+        // Animated.timing(modalSlideAnim, {
+        //   toValue: 300,
+        //   duration: 300,
+        //   easing: Easing.in(Easing.ease),
+        //   useNativeDriver: true,
+        // }).start(() => {
+        //   setModalVisible(false);
+        //   setOtp('');
+        // });
+        setModalVisible(false);
+        setOtp('');
+        navigation.navigate('ChangePassword', { email });
       } catch (error) {
         // Error handled by useAuthStore
       }

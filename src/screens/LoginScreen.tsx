@@ -41,40 +41,40 @@ const LoginScreen = () => {
   const errorFadeAnim = useRef(new Animated.Value(0)).current;
   const errorTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      () => {
-        setKeyboardVisible(true);
-        Animated.timing(logoAnim, {
-          toValue: 0.6,
-          duration: 200,
-          easing: Easing.ease,
-          useNativeDriver: true,
-        }).start();
-      }
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        setKeyboardVisible(false);
-        Animated.timing(logoAnim, {
-          toValue: 1,
-          duration: 200,
-          easing: Easing.ease,
-          useNativeDriver: true,
-        }).start();
-      }
-    );
+  // useEffect(() => {
+  //   const keyboardDidShowListener = Keyboard.addListener(
+  //     'keyboardDidShow',
+  //     () => {
+  //       setKeyboardVisible(true);
+  //       Animated.timing(logoAnim, {
+  //         toValue: 0.6,
+  //         duration: 200,
+  //         easing: Easing.ease,
+  //         useNativeDriver: true,
+  //       }).start();
+  //     }
+  //   );
+  //   const keyboardDidHideListener = Keyboard.addListener(
+  //     'keyboardDidHide',
+  //     () => {
+  //       setKeyboardVisible(false);
+  //       Animated.timing(logoAnim, {
+  //         toValue: 1,
+  //         duration: 200,
+  //         easing: Easing.ease,
+  //         useNativeDriver: true,
+  //       }).start();
+  //     }
+  //   );
 
-    return () => {
-      keyboardDidHideListener.remove();
-      keyboardDidShowListener.remove();
-      if (errorTimerRef.current) {
-        clearTimeout(errorTimerRef.current);
-      }
-    };
-  }, []);
+  //   return () => {
+  //     keyboardDidHideListener.remove();
+  //     keyboardDidShowListener.remove();
+  //     if (errorTimerRef.current) {
+  //       clearTimeout(errorTimerRef.current);
+  //     }
+  //   };
+  // }, []);
 
   // Handle error message display and auto-dismiss
   useEffect(() => {
@@ -113,7 +113,7 @@ const LoginScreen = () => {
         clearTimeout(errorTimerRef.current);
       }
     };
-  }, [loginError, error]);
+  }, [loginError]);
 
   const validateEmail = (value: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
