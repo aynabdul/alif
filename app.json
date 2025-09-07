@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Alif Animal Farm",
-    "slug": "alif-animal-farm",
+    "slug": "AlifAnimalFarm",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/Logo.png",
@@ -71,7 +71,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "your-project-id-here"
+        "projectId": "359459bd-3cde-42a9-98e1-077b20c05646"
       }
     },
     "updates": {
@@ -93,6 +93,6 @@
       "urlType": "lan"
     },
     "scheme": "alif-animal-farm",
-    "owner": "alif-animal-farm"
+    "owner": "aynabdul"
   }
 }

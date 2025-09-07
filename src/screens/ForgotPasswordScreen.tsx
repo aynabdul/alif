@@ -327,7 +327,7 @@ const ForgotPasswordScreen = () => {
                 clearError();
               }}
               placeholder="Enter 6-digit code"
-              keyboardType="phone-pad"
+              keyboardType="numeric"
               error={otpError}
               required
             />

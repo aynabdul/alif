@@ -10,7 +10,7 @@ interface KeyboardAwareInputProps {
   placeholder?: string;
   error?: string;
   required?: boolean;
-  keyboardType?: 'default' | 'email-address' | 'phone-pad';
+  keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric' | 'decimal-pad' | 'number-pad';
   secureTextEntry?: boolean;
   countryCode?: string;
   onCountryCodePress?: () => void;

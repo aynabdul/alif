@@ -26,7 +26,12 @@ import { RootStackNavigationProp } from '../types/navigation.types';
 import { orderPaymentService, couponService, authService } from '../services/api.service';
 import { Coupon, Customer, OrderPayload } from '../types/api.types';
 import { initStripe, initPaymentSheet, presentPaymentSheet, CollectionMode, AddressCollectionMode, } from '@stripe/stripe-react-native';
-import { API_CONFIG } from '../../env';
+// Environment variables are loaded automatically by Expo
+const API_CONFIG = {
+  BASE_URL: process.env.API_CONFIG_BASE_URL || 'https://aliffarms.com/alifadmin/api',
+  STRIPE_PUBLIC_KEY: process.env.API_CONFIG_STRIPE_PUBLIC_KEY || 'pk_live_51RDnUjKK5NeIwomRUmrFkXaWgVbAXok2qZ3xmdp0cI2VHvXXLzYIfFSiaybn3oP2c9vJ8TbN12Y1XD8oTEfXnCp000rla8LUfp',
+  BOP_CHECKOUT: process.env.API_CONFIG_BOP_CHECKOUT || 'https://ap-gateway.mastercard.com/static/checkout/checkout.min.js',
+};
 import WebView from 'react-native-webview';
 import { useForm, Controller } from 'react-hook-form';
 

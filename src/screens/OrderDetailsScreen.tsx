@@ -258,9 +258,9 @@ const OrderDetailsScreen = () => {
     if (!item.Product) return null;
     
     const product = item.Product;
-    const imageUrl = product.ProductImages && product.ProductImages.length > 0
-      ? { uri: `${API_BASE_URL}${product.ProductImages[0].imageUrl}` }
-      : require('../../assets/default-product.png');
+const imageUrl = product.ProductImages && product.ProductImages.length > 0
+  ? { uri: `${API_BASE_URL}/uploads${product.ProductImages[0].imageUrl}` }
+  : require('../../assets/default-product.png');
     
     return (
       <View style={[styles.orderItem, { backgroundColor: theme.colors.cardBackground }]}>
